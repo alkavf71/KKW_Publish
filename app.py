@@ -378,15 +378,31 @@ def classify_electrical_condition(voltage_unbalance, current_unbalance,
     elif not voltage_within_tolerance and v_avg > rated_voltage * 1.1:
         return "OVER_VOLTAGE", 70, "Medium"
     
-    if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_critical"]:
-        return "VOLTAGE_UNBALANCE", 75, "High"
-    elif voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_warning"]:
-        return "VOLTAGE_UNBALANCE", 65, "Medium"
-    
-    if current_unbalance > ELECTRICAL_LIMITS["current_unbalance_critical"]:
-        return "CURRENT_UNBALANCE", 70, "High"
+    # === LOGIKA VOLTAGE UNBALANCE DINAMIS ===
+    if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_warning"]:
+        result["diagnosis"] = "VOLTAGE_UNBALANCE"
+        # Bikin Dinamis: Start dari 60%, tambah 15% untuk setiap 1% unbalance
+        calculated_conf = 60 + int((voltage_unbalance - 1.0) * 15)
+        result["confidence"] = min(95, calculated_conf) # Maksimal 95%
+        
+        if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_critical"]:
+            result["severity"] = "High"
+        else:
+            result["severity"] = "Medium"
+        result["fault_type"] = "voltage"
+        
+    # === LOGIKA CURRENT UNBALANCE DINAMIS ===
     elif current_unbalance > ELECTRICAL_LIMITS["current_unbalance_warning"]:
-        return "CURRENT_UNBALANCE", 60, "Medium"
+        result["diagnosis"] = "CURRENT_UNBALANCE"
+        # Bikin Dinamis: Start dari 60%, tambah 5% untuk setiap 1% unbalance
+        calculated_conf = 60 + int((current_unbalance - 5.0) * 5)
+        result["confidence"] = min(95, calculated_conf)
+        
+        if current_unbalance > ELECTRICAL_LIMITS["current_unbalance_critical"]:
+            result["severity"] = "High"
+        else:
+            result["severity"] = "Medium"
+        result["fault_type"] = "current"
     
     if load_estimate > ELECTRICAL_LIMITS["current_load_critical"]:
         return "OVER_LOAD", 55, "Medium"
