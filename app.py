@@ -462,14 +462,22 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, tem
 
         # RULE A: MISALIGNMENT (Pola Aksial Lintas Kopling)
         if direction == "Axial":
-            opp_machine = "Pump" if machine == "Motor" else "Motor"
-            opp_point = f"{opp_machine} DE Axial"
-            opp_vel = vel_data.get(opp_point, 0)
-            
-            # Jika FFT 2x tinggi ATAU titik seberang kopling juga tinggi
-            if amp_2x > 0.5 * amp_1x or opp_vel > limit_warning:
-                low_freq_diag = "MISALIGNMENT"
-                low_freq_conf = min(95, 75 + int((opp_vel/limit_warning)*10))
+            # Pastikan pengecekan silang HANYA berlaku jika juara-nya di titik DE (Kopling)
+            if end == "DE":
+                opp_machine = "Pump" if machine == "Motor" else "Motor"
+                opp_point = f"{opp_machine} DE Axial"
+                opp_vel = vel_data.get(opp_point, 0)
+                
+                # Jika FFT 2x tinggi ATAU titik seberang kopling juga tinggi
+                if amp_2x > 0.5 * amp_1x or opp_vel > limit_warning:
+                    low_freq_diag = "MISALIGNMENT"
+                    low_freq_conf = min(95, 75 + int((opp_vel/limit_warning)*10 if limit_warning > 0 else 0))
+            else:
+                # Jika NDE Aksial yang juara, ini agak janggal untuk misalignment murni.
+                # Namun jika FFT 2x-nya dominan, kita tetap deteksi sebagai Misalignment yg merambat.
+                if amp_2x > 0.5 * amp_1x:
+                    low_freq_diag = "MISALIGNMENT"
+                    low_freq_conf = 70 # Confidence lebih rendah karena lokasinya di NDE
 
         # RULE B: UNBALANCE (Pola Horizontal Searah Poros)
         elif direction == "Horizontal":
