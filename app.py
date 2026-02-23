@@ -510,6 +510,9 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, tem
         result.update({"diagnosis": low_freq_diag, "confidence": low_freq_conf, "severity": "Medium", "fault_type": "low_freq"})
     elif worst_bearing_severity == "Medium":
         result.update({"diagnosis": bearing_diag, "confidence": 75, "severity": "Medium", "fault_type": "high_freq", "champion_point": worst_bearing_point})
+    else:
+        # [TAMBAHAN BARU] Jika semua masuk sini, berarti Normal
+        result["champion_point"] = "Tidak Ada (Normal)"
 
     return result
 
