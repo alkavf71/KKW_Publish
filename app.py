@@ -624,7 +624,7 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
 
 
 # ============================================================================
-# FUNGSI DIAGNOSA - ELECTRICAL DOMAIN (SIMPLIFIED)
+# FUNGSI DIAGNOSA - ELECTRICAL DOMAIN (UPDATED: DYNAMIC CONFIDENCE)
 # ============================================================================
 def diagnose_electrical_condition(electrical_calc, motor_specs):
     result = {
@@ -643,6 +643,7 @@ def diagnose_electrical_condition(electrical_calc, motor_specs):
     v_avg = electrical_calc.get("v_avg", 0)
     rated_voltage = motor_specs.get("rated_voltage", 400)
     
+    # 1. Cek Under/Over Voltage (Utama)
     if not voltage_within_tolerance:
         if v_avg < rated_voltage * 0.9:
             result["diagnosis"] = "UNDER_VOLTAGE"
@@ -654,50 +655,45 @@ def diagnose_electrical_condition(electrical_calc, motor_specs):
             result["confidence"] = 70
             result["severity"] = "Medium"
             result["fault_type"] = "voltage"
-        result["details"] = {
-            "voltage_unbalance": voltage_unbalance,
-            "current_unbalance": current_unbalance,
-            "load_estimate": load_estimate
-        }
+        result["details"] = {"voltage_unbalance": voltage_unbalance, "current_unbalance": current_unbalance, "load_estimate": load_estimate}
         return result
     
-    if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_critical"]:
+    # 2. Cek Voltage Unbalance (DINAMIS)
+    if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_warning"]:
         result["diagnosis"] = "VOLTAGE_UNBALANCE"
-        result["confidence"] = 75
-        result["severity"] = "High"
+        # Semakin timpang tegangannya, semakin yakin (tambah 15% tiap selisih 1%)
+        calculated_conf = 60 + int((voltage_unbalance - ELECTRICAL_LIMITS["voltage_unbalance_warning"]) * 15)
+        result["confidence"] = min(95, calculated_conf) # Max 95%
+        result["severity"] = "High" if voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_critical"] else "Medium"
         result["fault_type"] = "voltage"
-    elif voltage_unbalance > ELECTRICAL_LIMITS["voltage_unbalance_warning"]:
-        result["diagnosis"] = "VOLTAGE_UNBALANCE"
-        result["confidence"] = 65
-        result["severity"] = "Medium"
-        result["fault_type"] = "voltage"
+        
+    # 3. Cek Current Unbalance (DINAMIS)
+    elif current_unbalance > ELECTRICAL_LIMITS["current_unbalance_warning"]:
+        result["diagnosis"] = "CURRENT_UNBALANCE"
+        # Semakin timpang arusnya, semakin yakin (tambah 5% tiap selisih 1%)
+        calculated_conf = 60 + int((current_unbalance - ELECTRICAL_LIMITS["current_unbalance_warning"]) * 5)
+        result["confidence"] = min(95, calculated_conf) # Max 95%
+        result["severity"] = "High" if current_unbalance > ELECTRICAL_LIMITS["current_unbalance_critical"] else "Medium"
+        result["fault_type"] = "current"
+        
+    # 4. Cek Overload / Underload (DINAMIS)
     else:
-        if current_unbalance > ELECTRICAL_LIMITS["current_unbalance_critical"]:
-            result["diagnosis"] = "CURRENT_UNBALANCE"
-            result["confidence"] = 70
-            result["severity"] = "High"
-            result["fault_type"] = "current"
-        elif current_unbalance > ELECTRICAL_LIMITS["current_unbalance_warning"]:
-            result["diagnosis"] = "CURRENT_UNBALANCE"
-            result["confidence"] = 60
+        if load_estimate > ELECTRICAL_LIMITS["current_load_critical"]: # > 100%
+            result["diagnosis"] = "OVER_LOAD"
+            # Semakin besar persen beban lebihnya, semakin yakin
+            result["confidence"] = min(95, 55 + int(load_estimate - 100))
             result["severity"] = "Medium"
-            result["fault_type"] = "current"
+            result["fault_type"] = "load"
+        elif load_estimate < 50:
+            result["diagnosis"] = "UNDER_LOAD"
+            result["confidence"] = 50
+            result["severity"] = "Low"
+            result["fault_type"] = "load"
         else:
-            if load_estimate > ELECTRICAL_LIMITS["current_load_critical"]:
-                result["diagnosis"] = "OVER_LOAD"
-                result["confidence"] = 55
-                result["severity"] = "Medium"
-                result["fault_type"] = "load"
-            elif load_estimate < 50:
-                result["diagnosis"] = "UNDER_LOAD"
-                result["confidence"] = 50
-                result["severity"] = "Low"
-                result["fault_type"] = "load"
-            else:
-                result["diagnosis"] = "NORMAL_ELECTRICAL"
-                result["confidence"] = 95
-                result["severity"] = "Low"
-                result["fault_type"] = "normal"
+            result["diagnosis"] = "NORMAL_ELECTRICAL"
+            result["confidence"] = 95
+            result["severity"] = "Low"
+            result["fault_type"] = "normal"
     
     result["details"] = {
         "voltage_unbalance": voltage_unbalance,
