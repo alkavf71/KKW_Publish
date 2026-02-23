@@ -1133,7 +1133,8 @@ def main():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            suction_pressure = st.number_input("Suction Pressure [bar]", min_value=0.0, 
+            # Ubah min_value menjadi -1.0 agar bisa membaca tekanan vakum (minus)
+            suction_pressure = st.number_input("Suction Pressure [bar]", min_value=-1.0, 
                                                value=0.44, step=0.01, key="suction_p")
             discharge_pressure = st.number_input("Discharge Pressure [bar]", min_value=0.0, 
                                                  value=3.73, step=0.01, key="discharge_p")
