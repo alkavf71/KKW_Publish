@@ -572,8 +572,17 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
     
     if pattern == "OVER_RESISTANCE":
         result["diagnosis"] = "SYSTEM_RESISTANCE_HIGH"
-        result["confidence"] = 75
-        result["severity"] = "Medium"
+        
+        # Bikin Dinamis: Semakin jauh deviasi head/flow-nya, semakin yakin sistemnya!
+        dev_head_abs = abs(deviations.get("head_dev", 0))
+        result["confidence"] = min(90, 70 + int(dev_head_abs))
+        
+        # Bikin Severity Dinamis: Jika flow drop lebih dari 30%, jadikan HIGH (Bahaya Deadheading)
+        if deviations.get("flow_dev", 0) < -30:
+            result["severity"] = "High"
+        else:
+            result["severity"] = "Medium"
+            
         result["fault_type"] = "system"
         return result
     
