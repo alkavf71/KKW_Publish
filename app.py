@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
 # ============================================================================
 # KONFIGURASI GLOBAL - MULTI-DOMAIN EXPERT SYSTEM
 # ============================================================================
@@ -16,13 +15,11 @@ ISO_LIMITS_VELOCITY = {
     "Zone C (Unacceptable)": 7.1,
     "Zone D (Danger)": 11.0
 }
-
 ACCEL_BASELINE = {
     "Band1 (0.5-1.5kHz)": 0.3,
     "Band2 (1.5-5kHz)": 0.2,
     "Band3 (5-16kHz)": 0.15
 }
-
 # --- Bearing Temperature Thresholds (IEC 60034-1, API 610, SKF) ---
 BEARING_TEMP_LIMITS = {
     "normal_max": 70,
@@ -34,7 +31,6 @@ BEARING_TEMP_LIMITS = {
     "delta_threshold": 15,
     "ambient_reference": 30
 }
-
 # --- Hydraulic Fluid Properties (BBM Specific - Pertamina) ---
 FLUID_PROPERTIES = {
     "Pertalite (RON 90)": {
@@ -59,7 +55,6 @@ FLUID_PROPERTIES = {
         "risk_level": "Moderate"
     }
 }
-
 # --- Electrical Thresholds (IEC 60034-1 & Practical Limits) ---
 ELECTRICAL_LIMITS = {
     "voltage_unbalance_warning": 1.0,
@@ -72,56 +67,55 @@ ELECTRICAL_LIMITS = {
     "current_load_critical": 100,
     "service_factor": 1.0
 }
-
 # ============================================================================
 # FUNGSI REKOMENDASI - MULTI-DOMAIN
 # ============================================================================
 def get_mechanical_recommendation(diagnosis: str, location: str, severity: str = "Medium") -> str:
     rec_map = {
         "UNBALANCE": (
-            f"🔧 **{location} - Unbalance**\n\n"
+            f"🔧 **{location} - Unbalance**\n"
             f"• Lakukan single/dual plane balancing pada rotor\n"
             f"• Periksa: material buildup pada impeller, korosi blade, keyway wear\n"
             f"• Target residual unbalance: < 4W/N (g·mm) per ISO 1940-1\n"
             f"• Severity: {severity} → {'Segera jadwalkan balancing' if severity != 'Low' else 'Monitor trend'}"
         ),
         "MISALIGNMENT": (
-            f"🔧 **{location} - Misalignment**\n\n"
+            f"🔧 **{location} - Misalignment**\n"
             f"• Lakukan laser alignment pump-motor coupling\n"
             f"• Toleransi target: < 0.05 mm offset, < 0.05 mm/m angular\n"
             f"• Periksa: pipe strain, soft foot, coupling wear\n"
             f"• Severity: {severity} → {'Stop & align segera' if severity == 'High' else 'Jadwalkan alignment'}"
         ),
         "LOOSENESS": (
-            f"🔧 **{location} - Mechanical Looseness**\n\n"
+            f"🔧 **{location} - Mechanical Looseness**\n"
             f"• Torque check semua baut: foundation, bearing housing, baseplate\n"
             f"• Periksa: crack pada struktur, worn dowel pins, grout deterioration\n"
             f"• Gunakan torque wrench sesuai spec manufacturer\n"
             f"• Severity: {severity} → {'Amankan sebelum operasi' if severity == 'High' else 'Jadwalkan tightening'}"
         ),
         "BEARING_EARLY": (
-            f"🔧 **{location} - Early Bearing Fault / Lubrication**\n\n"
+            f"🔧 **{location} - Early Bearing Fault / Lubrication**\n"
             f"• Cek lubrication: jenis grease, interval, quantity\n"
             f"• Ambil oil sample jika applicable (particle count, viscosity)\n"
             f"• Monitor trend Band 3 mingguan\n"
             f"• Severity: {severity} → {'Ganti grease & monitor ketat' if severity != 'Low' else 'Lanjutkan monitoring'}"
         ),
         "BEARING_DEVELOPED": (
-            f"🔧 **{location} - Developed Bearing Fault**\n\n"
+            f"🔧 **{location} - Developed Bearing Fault**\n"
             f"• Jadwalkan bearing replacement dalam 1-3 bulan\n"
             f"• Siapkan spare bearing (pastikan clearance & fit sesuai spec)\n"
             f"• Monitor weekly: jika Band 1 naik drastis → percepat jadwal\n"
             f"• Severity: {severity} → {'Plan shutdown segera' if severity == 'High' else 'Siapkan work order'}"
         ),
         "BEARING_SEVERE": (
-            f"🔴 **{location} - Severe Bearing Damage**\n\n"
+            f"🔴 **{location} - Severe Bearing Damage**\n"
             f"• RISK OF CATASTROPHIC FAILURE - Pertimbangkan immediate shutdown\n"
             f"• Jika continue operasi: monitor hourly, siapkan emergency replacement\n"
             f"• Investigasi root cause: lubrication, installation, loading?\n"
             f"• Severity: HIGH → Action required dalam 24 jam"
         ),
         "Tidak Terdiagnosa": (
-            "⚠️ **Pola Tidak Konsisten**\n\n"
+            "⚠️ **Pola Tidak Konsisten**\n"
             "• Data tidak match dengan rule mekanikal standar\n"
             "• Kemungkinan: multi-fault interaction, measurement error, atau fault non-rutin\n"
             "• Rekomendasi: Analisis manual oleh Vibration Analyst Level II+ dengan full spectrum review"
@@ -132,39 +126,39 @@ def get_mechanical_recommendation(diagnosis: str, location: str, severity: str =
 def get_hydraulic_recommendation(diagnosis: str, fluid_type: str, severity: str = "Medium") -> str:
     rec_map = {
         "CAVITATION": (
-            f"💧 **{fluid_type} - Cavitation Risk**\n\n"
+            f"💧 **{fluid_type} - Cavitation Risk**\n"
             f"• Tingkatkan suction pressure atau turunkan fluid temperature\n"
             f"• Cek: strainer clogged, valve posisi, NPSH margin\n"
             f"• Target NPSH margin: > 0.5 m untuk {fluid_type}\n"
             f"• Severity: {severity} → {'Evaluasi immediate shutdown jika NPSH margin <0.3m' if severity == 'High' else 'Monitor intensif'}"
         ),
         "IMPELLER_WEAR": (
-            f"💧 **{fluid_type} - Impeller Wear / Internal Clearance**\n\n"
+            f"💧 **{fluid_type} - Impeller Wear / Internal Clearance**\n"
             f"• Jadwalkan inspection impeller & wear ring\n"
             f"• Ukur internal clearance vs spec OEM\n"
             f"• Pertimbangkan: fluid viscosity effect pada slip loss\n"
             f"• Severity: {severity} → {'Siapkan spare impeller' if severity != 'Low' else 'Monitor trend efisiensi'}"
         ),
         "SYSTEM_RESISTANCE_HIGH": (
-            f"💧 **{fluid_type} - System Resistance Higher Than Design**\n\n"
+            f"💧 **{fluid_type} - System Resistance Higher Than Design**\n"
             f"• Cek valve discharge position, clogged line, atau filter pressure drop\n"
             f"• Verifikasi P&ID vs as-built condition\n"
             f"• Evaluasi: apakah operating point masih dalam acceptable range?\n"
             f"• Severity: {severity} → {'Adjust valve / clean line segera' if severity == 'High' else 'Jadwalkan system review'}"
         ),
         "EFFICIENCY_DROP": (
-            f"💧 **{fluid_type} - Efficiency Degradation**\n\n"
+            f"💧 **{fluid_type} - Efficiency Degradation**\n"
             f"• Investigasi: mechanical loss vs hydraulic loss vs fluid property mismatch\n"
             f"• Severity: {severity} → {'Plan overhaul dalam 1-3 bulan' if severity != 'Low' else 'Monitor monthly'}"
         ),
         "NORMAL_OPERATION": (
-            f"✅ **{fluid_type} - Normal Operation**\n\n"
+            f"✅ **{fluid_type} - Normal Operation**\n"
             f"• Semua parameter dalam batas acceptable (±5% dari design)\n"
             f"• Rekam data ini sebagai baseline untuk trend monitoring\n"
             f"• Severity: Low → Continue routine monitoring"
         ),
         "Tidak Terdiagnosa": (
-            "⚠️ **Pola Tidak Konsisten**\n\n"
+            "⚠️ **Pola Tidak Konsisten**\n"
             "• Data hydraulic tidak match dengan rule standar\n"
             "• Rekomendasi: Verifikasi data lapangan + cross-check dengan electrical/mechanical data"
         )
@@ -174,48 +168,48 @@ def get_hydraulic_recommendation(diagnosis: str, fluid_type: str, severity: str 
 def get_electrical_recommendation(diagnosis: str, severity: str = "Medium") -> str:
     rec_map = {
         "UNDER_VOLTAGE": (
-            f"⚡ **Under Voltage Condition**\n\n"
+            f"⚡ **Under Voltage Condition**\n"
             f"• Cek supply voltage di MCC: possible transformer tap / cable voltage drop\n"
             f"• Verify: motor rated voltage vs actual operating voltage\n"
             f"• Severity: {severity} → {'Coordinate dengan electrical team segera' if severity == 'High' else 'Monitor voltage trend'}"
         ),
         "OVER_VOLTAGE": (
-            f"⚡ **Over Voltage Condition**\n\n"
+            f"⚡ **Over Voltage Condition**\n"
             f"• Cek supply voltage di MCC: possible transformer tap issue\n"
             f"• Verify: motor rated voltage vs actual operating voltage\n"
             f"• Severity: {severity} → {'Coordinate dengan electrical team segera' if severity == 'High' else 'Monitor voltage trend'}"
         ),
         "VOLTAGE_UNBALANCE": (
-            f"⚡ **Voltage Unbalance Detected**\n\n"
+            f"⚡ **Voltage Unbalance Detected**\n"
             f"• Cek 3-phase supply balance di source: possible single-phase loading\n"
             f"• Inspect: loose connection, corroded terminal, faulty breaker\n"
             f"• Severity: {severity} → {'Balance supply sebelum mechanical damage' if severity != 'Low' else 'Monitor monthly'}"
         ),
         "CURRENT_UNBALANCE": (
-            f"⚡ **Current Unbalance Detected**\n\n"
+            f"⚡ **Current Unbalance Detected**\n"
             f"• Investigasi: winding fault, rotor bar issue, atau supply problem\n"
             f"• Cek insulation resistance & winding resistance balance\n"
             f"• Severity: {severity} → {'Schedule electrical inspection' if severity != 'Low' else 'Continue monitoring'}"
         ),
         "OVER_LOAD": (
-            f"⚡ **Over Load Condition**\n\n"
+            f"⚡ **Over Load Condition**\n"
             f"• Motor operating above FLA rating\n"
             f"• Verify: process load, mechanical binding, or electrical issue\n"
             f"• Severity: {severity} → {'Reduce load immediately' if severity == 'High' else 'Monitor trend closely'}"
         ),
         "UNDER_LOAD": (
-            f"⚡ **Under Load Condition**\n\n"
+            f"⚡ **Under Load Condition**\n"
             f"• Motor operating below 50% FLA\n"
             f"• Verify: process demand, pump sizing, or system resistance\n"
             f"• Severity: Low → Review operating point vs BEP"
         ),
         "NORMAL_ELECTRICAL": (
-            f"✅ **Normal Electrical Condition**\n\n"
+            f"✅ **Normal Electrical Condition**\n"
             f"• Voltage balance <2%, current balance <5%, within rated limits\n"
             f"• Severity: Low → Continue routine electrical monitoring"
         ),
         "Tidak Terdiagnosa": (
-            "⚠️ **Pola Tidak Konsisten**\n\n"
+            "⚠️ **Pola Tidak Konsisten**\n"
             "• Data electrical tidak match dengan rule standar\n"
             "• Rekomendasi: Verifikasi dengan power quality analyzer + cross-check domain lain"
         )
@@ -304,6 +298,7 @@ def classify_hydraulic_performance(head_aktual, head_design, efficiency_aktual,
     dev_head = ((head_aktual - head_design) / head_design * 100) if head_design > 0 else 0
     dev_eff = ((efficiency_aktual - efficiency_bep) / efficiency_bep * 100) if efficiency_bep > 0 else 0
     dev_flow = ((flow_aktual - flow_design) / flow_design * 100) if flow_design > 0 else 0
+    
     if dev_head < -5 and dev_eff < -5:
         return "UNDER_PERFORMANCE", {"head_dev": dev_head, "eff_dev": dev_eff}
     elif dev_head > 5 and dev_flow < -5:
@@ -396,127 +391,146 @@ def diagnose_electrical_condition(electrical_calc, motor_specs):
             result["confidence"] = 50
             result["severity"] = "Low"
             result["fault_type"] = "load"
-    
-    result["details"] = {
-        "voltage_unbalance": voltage_unbalance,
-        "current_unbalance": current_unbalance,
-        "load_estimate": load_estimate
-    }
+        result["details"] = {
+            "voltage_unbalance": voltage_unbalance,
+            "current_unbalance": current_unbalance,
+            "load_estimate": load_estimate
+        }
     return result
 
 # ============================================================================
-# FUNGSI DIAGNOSA - MECHANICAL DOMAIN
+# FUNGSI DIAGNOSA - MECHANICAL DOMAIN (MULTI-POINT SUPPORT)
 # ============================================================================
-def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, temp_data):
+def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp_data):
+    """
+    fft_data_dict: dictionary dengan key=point_name, value=list of (freq, amp) tuples
+    """
     result = {
         "diagnosis": "Normal",
         "confidence": 99,
         "severity": "Low",
         "fault_type": "normal",
         "domain": "mechanical",
-        "champion_point": None,
-        "temperature_notes": []
+        "champion_points": [],  # MULTI-POINT: sekarang list, bukan single value
+        "temperature_notes": [],
+        "point_diagnoses": {}  # MULTI-POINT: simpan diagnosis per titik
     }
+    
     limit_warning = ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]
     limit_danger = ISO_LIMITS_VELOCITY["Zone C (Unacceptable)"]
-    
     worst_bearing_severity = "Low"
     bearing_diag = "Normal"
     base3 = ACCEL_BASELINE["Band3 (5-16kHz)"]
     base2 = ACCEL_BASELINE["Band2 (1.5-5kHz)"]
     base1 = ACCEL_BASELINE["Band1 (0.5-1.5kHz)"]
     
+    # MULTI-POINT: Track semua titik yang bermasalah
+    problematic_points = []
+    
     for point, bands in bands_data.items():
         b3 = bands.get("Band3", 0)
         b2 = bands.get("Band2", 0)
         b1 = bands.get("Band1", 0)
+        vel = vel_data.get(point, 0)
+        
+        point_diagnosis = {
+            "velocity": vel,
+            "bands": bands,
+            "fault_type": "normal",
+            "severity": "Low"
+        }
+        
+        # Check bearing faults per point
         if b1 > 2.5 * base1 and b2 > 1.5 * base2:
+            point_diagnosis["fault_type"] = "BEARING_SEVERE"
+            point_diagnosis["severity"] = "High"
             worst_bearing_severity = "High"
             bearing_diag = "BEARING_SEVERE"
+            problematic_points.append(point)
         elif b2 > 2.0 * base2 and b3 > 1.5 * base3:
-            worst_bearing_severity = "High" if b2 > 3*base2 else "Medium"
+            point_diagnosis["fault_type"] = "BEARING_DEVELOPED"
+            point_diagnosis["severity"] = "High" if b2 > 3*base2 else "Medium"
+            if point_diagnosis["severity"] == "High":
+                worst_bearing_severity = "High"
             bearing_diag = "BEARING_DEVELOPED"
+            problematic_points.append(point)
         elif b3 > 2.0 * base3:
             if worst_bearing_severity == "Low":
                 worst_bearing_severity = "Medium"
+            point_diagnosis["fault_type"] = "BEARING_EARLY"
+            point_diagnosis["severity"] = "Medium"
             bearing_diag = "BEARING_EARLY"
-    
-    champ_point = max(vel_data, key=vel_data.get)
-    max_vel = vel_data[champ_point]
-    result["champion_point"] = champ_point
-    
-    low_freq_diag = None
-    low_freq_severity = "Low"
-    low_freq_conf = 0
-    
-    if max_vel > limit_warning:
-        low_freq_severity = "High" if max_vel > limit_danger else "Medium"
-        parts = champ_point.split()
-        if len(parts) >= 3:
-            machine = parts[0]
-            end = parts[1]
-            direction = parts[2]
-        else:
-            machine, end, direction = "Pump", "DE", "Horizontal"
+            problematic_points.append(point)
         
-        amp_1x = next((p[1] for p in fft_champ_data if abs(p[0]-rpm_hz) < 0.05*rpm_hz), 0)
-        amp_2x = next((p[1] for p in fft_champ_data if abs(p[0]-2*rpm_hz) < 0.05*rpm_hz), 0)
+        # Check low frequency faults per point
+        if vel > limit_warning:
+            low_freq_severity = "High" if vel > limit_danger else "Medium"
+            parts = point.split()
+            if len(parts) >= 3:
+                machine = parts[0]
+                end = parts[1]
+                direction = parts[2]
+            else:
+                machine, end, direction = "Pump", "DE", "Horizontal"
+            
+            # Get FFT data for this specific point (MULTI-POINT FIX)
+            fft_champ_data = fft_data_dict.get(point, [(rpm_hz, 0.1), (2*rpm_hz, 0.05)])
+            
+            amp_1x = next((p[1] for p in fft_champ_data if abs(p[0]-rpm_hz) < 0.05*rpm_hz), 0)
+            amp_2x = next((p[1] for p in fft_champ_data if abs(p[0]-2*rpm_hz) < 0.05*rpm_hz), 0)
+            
+            low_freq_diag = None
+            if direction == "Axial" and end == "DE":
+                opp_machine = "Pump" if machine == "Motor" else "Motor"
+                opp_point = f"{opp_machine} DE Axial"
+                opp_vel = vel_data.get(opp_point, 0)
+                if amp_2x > 0.5 * amp_1x or opp_vel > limit_warning:
+                    low_freq_diag = "MISALIGNMENT"
+            elif direction == "Horizontal":
+                opp_end = "NDE" if end == "DE" else "DE"
+                opp_point = f"{machine} {opp_end} Horizontal"
+                opp_vel = vel_data.get(opp_point, 0)
+                total_fft = sum(p[1] for p in fft_champ_data) if fft_champ_data else 1
+                if amp_1x > 0.7 * total_fft or opp_vel > limit_warning:
+                    low_freq_diag = "UNBALANCE"
+            elif direction == "Vertical":
+                high_verts = sum(1 for p, v in vel_data.items() if "Vertical" in p and v > limit_warning)
+                if high_verts >= 2 or (amp_2x > 0.1 and amp_1x > 0.1):
+                    low_freq_diag = "LOOSENESS"
+            
+            if low_freq_diag:
+                point_diagnosis["fault_type"] = low_freq_diag
+                point_diagnosis["severity"] = low_freq_severity
+                problematic_points.append(point)
         
-        if direction == "Axial" and end == "DE":
-            opp_machine = "Pump" if machine == "Motor" else "Motor"
-            opp_point = f"{opp_machine} DE Axial"
-            opp_vel = vel_data.get(opp_point, 0)
-            if amp_2x > 0.5 * amp_1x or opp_vel > limit_warning:
-                low_freq_diag = "MISALIGNMENT"
-                low_freq_conf = min(95, 75 + int((opp_vel/limit_warning)*10 if limit_warning > 0 else 0))
-        elif direction == "Horizontal":
-            opp_end = "NDE" if end == "DE" else "DE"
-            opp_point = f"{machine} {opp_end} Horizontal"
-            opp_vel = vel_data.get(opp_point, 0)
-            total_fft = sum(p[1] for p in fft_champ_data) if fft_champ_data else 1
-            if amp_1x > 0.7 * total_fft or opp_vel > limit_warning:
-                low_freq_diag = "UNBALANCE"
-                low_freq_conf = min(90, 70 + int((amp_1x/max_vel)*20 if max_vel>0 else 0))
-        elif direction == "Vertical":
-            high_verts = sum(1 for p, v in vel_data.items() if "Vertical" in p and v > limit_warning)
-            if high_verts >= 2 or (amp_2x > 0.1 and amp_1x > 0.1):
-                low_freq_diag = "LOOSENESS"
-                low_freq_conf = min(90, 60 + (high_verts * 10))
-        
-        if not low_freq_diag:
-            low_freq_diag = "Tidak Terdiagnosa"
-            low_freq_conf = 40
+        result["point_diagnoses"][point] = point_diagnosis
     
-    if low_freq_severity == "High":
-        result.update({
-            "diagnosis": low_freq_diag,
-            "confidence": low_freq_conf,
-            "severity": "High",
-            "fault_type": "low_freq"
-        })
-    elif worst_bearing_severity == "High":
-        result.update({
-            "diagnosis": bearing_diag,
-            "confidence": 85,
-            "severity": "High",
-            "fault_type": "high_freq"
-        })
-    elif low_freq_severity == "Medium":
-        result.update({
-            "diagnosis": low_freq_diag,
-            "confidence": low_freq_conf,
-            "severity": "Medium",
-            "fault_type": "low_freq"
-        })
-    elif worst_bearing_severity == "Medium":
-        result.update({
-            "diagnosis": bearing_diag,
-            "confidence": 75,
-            "severity": "Medium",
-            "fault_type": "high_freq"
-        })
+    # MULTI-POINT: Set all problematic points as champion points
+    result["champion_points"] = problematic_points if problematic_points else ["Tidak Ada (Normal)"]
+    
+    # Determine overall system diagnosis based on worst case
+    if any(p["severity"] == "High" for p in result["point_diagnoses"].values()):
+        result["severity"] = "High"
+    elif any(p["severity"] == "Medium" for p in result["point_diagnoses"].values()):
+        result["severity"] = "Medium"
+    
+    # Set primary diagnosis based on most severe fault
+    high_freq_faults = ["BEARING_SEVERE", "BEARING_DEVELOPED", "BEARING_EARLY"]
+    low_freq_faults = ["UNBALANCE", "MISALIGNMENT", "LOOSENESS"]
+    
+    for fault in high_freq_faults:
+        if any(p["fault_type"] == fault for p in result["point_diagnoses"].values()):
+            result["diagnosis"] = fault
+            result["fault_type"] = "high_freq"
+            result["confidence"] = 85
+            break
     else:
-        result["champion_point"] = "Tidak Ada (Normal)"
+        for fault in low_freq_faults:
+            if any(p["fault_type"] == fault for p in result["point_diagnoses"].values()):
+                result["diagnosis"] = fault
+                result["fault_type"] = "low_freq"
+                result["confidence"] = 75
+                break
     
     return result
 
@@ -533,6 +547,7 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
         "domain": "hydraulic",
         "details": {}
     }
+    
     head_aktual = hydraulic_calc.get("head_m", 0)
     eff_aktual = hydraulic_calc.get("efficiency_percent", 0)
     head_design = design_params.get("rated_head_m", 0)
@@ -610,8 +625,10 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
         "location": "N/A",
         "domain_breakdown": {},
         "correlation_notes": [],
-        "temperature_notes": []
+        "temperature_notes": [],
+        "affected_points": []  # MULTI-POINT: track all affected points
     }
+    
     system_result["domain_breakdown"] = {
         "mechanical": mech_result,
         "hydraulic": hyd_result,
@@ -624,6 +641,9 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
     mech_sev = mech_result.get("severity", "Low")
     hyd_sev = hyd_result.get("severity", "Low")
     elec_sev = elec_result.get("severity", "Low")
+    
+    # MULTI-POINT: Get all affected mechanical points
+    system_result["affected_points"] = mech_result.get("champion_points", [])
     
     correlation_bonus = 0
     correlated_faults = []
@@ -709,13 +729,16 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
     
     lines.append("=== MECHANICAL VIBRATION ===")
     if mech_data.get("points"):
-        lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g),Status")
+        lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g),Status,Diagnosis")
         for point, data in mech_data["points"].items():
             vel = data.get('velocity', 0)
             bands = data.get('bands', {})
             b1 = bands.get('Band1', 0)
             b2 = bands.get('Band2', 0)
             b3 = bands.get('Band3', 0)
+            point_diag = mech_data.get("point_diagnoses", {}).get(point, {})
+            point_fault = point_diag.get("fault_type", "normal")
+            
             if vel > 7.1:
                 status = "Zone_D"
             elif vel > 4.5:
@@ -724,10 +747,15 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
                 status = "Zone_B"
             else:
                 status = "Zone_A"
-            lines.append(f"{point},{vel:.2f},{b1:.3f},{b2:.3f},{b3:.3f},{status}")
+            lines.append(f"{point},{vel:.2f},{b1:.3f},{b2:.3f},{b3:.3f},{status},{point_fault}")
         lines.append(f"System Diagnosis: {mech_data.get('system_diagnosis', 'N/A')}")
-        lines.append(f"Champion Point: {mech_data.get('champion_point', 'N/A')}")
-    lines.append("")
+        # MULTI-POINT: Show all champion points
+        champion_points = mech_data.get('champion_points', [])
+        if isinstance(champion_points, list):
+            lines.append(f"Champion Points: {', '.join(champion_points)}")
+        else:
+            lines.append(f"Champion Point: {champion_points}")
+        lines.append("")
     
     lines.append("=== HYDRAULIC PERFORMANCE ===")
     if hyd_data.get("measurements"):
@@ -738,7 +766,7 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
         lines.append(f"Calculated Head: {hyd_data.get('head_m', 0):.1f} m | Efficiency: {hyd_data.get('efficiency_percent', 0):.1f}%")
         lines.append(f"NPSH Margin: {hyd_data.get('npsh_margin_m', 0):.2f} m")
         lines.append(f"Diagnosis: {hyd_data.get('diagnosis', 'N/A')} | Confidence: {hyd_data.get('confidence', 0)}% | Severity: {hyd_data.get('severity', 'N/A')}")
-    lines.append("")
+        lines.append("")
     
     lines.append("=== ELECTRICAL CONDITION ===")
     if elec_data.get("measurements"):
@@ -748,12 +776,13 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
         lines.append(f"Voltage Unbalance: {elec_data.get('voltage_unbalance', 0):.2f}% | Current Unbalance: {elec_data.get('current_unbalance', 0):.2f}%")
         lines.append(f"Load Estimate: {elec_data.get('load_estimate', 0):.1f}%")
         lines.append(f"Diagnosis: {elec_data.get('diagnosis', 'N/A')} | Confidence: {elec_data.get('confidence', 0)}% | Severity: {elec_data.get('severity', 'N/A')}")
-    lines.append("")
+        lines.append("")
     
     lines.append("=== INTEGRATED DIAGNOSIS ===")
     lines.append(f"Overall Diagnosis: {integrated_result.get('diagnosis', 'N/A')}")
     lines.append(f"Overall Confidence: {integrated_result.get('confidence', 0)}%")
     lines.append(f"Overall Severity: {integrated_result.get('severity', 'N/A')}")
+    lines.append(f"Affected Points: {', '.join(integrated_result.get('affected_points', []))}")
     lines.append(f"Correlation Notes: {'; '.join(integrated_result.get('correlation_notes', []))}")
     if integrated_result.get("temperature_notes"):
         lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
@@ -794,15 +823,15 @@ def main():
         st.subheader("📍 Shared Context")
         machine_id = st.text_input("Machine ID / Tag", value=st.session_state.shared_context["machine_id"])
         rpm = st.number_input("Operating RPM", min_value=600, max_value=3600,
-                             value=st.session_state.shared_context["rpm"], step=10)
+                              value=st.session_state.shared_context["rpm"], step=10)
         service_type = st.selectbox("Service Criticality",
-                                   ["Critical (Process)", "Essential (Utility)", "Standby"],
-                                   index=["Critical (Process)", "Essential (Utility)", "Standby"].index(
-                                       st.session_state.shared_context["service_criticality"]))
+                                    ["Critical (Process)", "Essential (Utility)", "Standby"],
+                                    index=["Critical (Process)", "Essential (Utility)", "Standby"].index(
+                                        st.session_state.shared_context["service_criticality"]))
         fluid_type = st.selectbox("Fluid Type (BBM)",
-                                 list(FLUID_PROPERTIES.keys()),
-                                 index=list(FLUID_PROPERTIES.keys()).index(
-                                     st.session_state.shared_context["fluid_type"]))
+                                  list(FLUID_PROPERTIES.keys()),
+                                  index=list(FLUID_PROPERTIES.keys()).index(
+                                      st.session_state.shared_context["fluid_type"]))
         
         st.session_state.shared_context.update({
             "machine_id": machine_id,
@@ -858,9 +887,10 @@ def main():
         st.subheader("🌡️ Bearing Temperature (4 Points)")
         temp_cols = st.columns(4)
         temp_data = {}
+        
         with temp_cols[0]:
             pump_de_temp = st.number_input("Pump DE (°C)", min_value=0, max_value=150,
-                                          value=65, step=1, key="temp_pump_de")
+                                           value=65, step=1, key="temp_pump_de")
             temp_data["Pump_DE"] = pump_de_temp
             if pump_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
                 st.error(f"🔴 {pump_de_temp}°C - Warning")
@@ -871,7 +901,7 @@ def main():
         
         with temp_cols[1]:
             pump_nde_temp = st.number_input("Pump NDE (°C)", min_value=0, max_value=150,
-                                           value=63, step=1, key="temp_pump_nde")
+                                            value=63, step=1, key="temp_pump_nde")
             temp_data["Pump_NDE"] = pump_nde_temp
             if pump_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
                 st.error(f"🔴 {pump_nde_temp}°C - Warning")
@@ -882,7 +912,7 @@ def main():
         
         with temp_cols[2]:
             motor_de_temp = st.number_input("Motor DE (°C)", min_value=0, max_value=150,
-                                           value=68, step=1, key="temp_motor_de")
+                                            value=68, step=1, key="temp_motor_de")
             temp_data["Motor_DE"] = motor_de_temp
             if motor_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
                 st.error(f"🔴 {motor_de_temp}°C - Warning")
@@ -893,7 +923,7 @@ def main():
         
         with temp_cols[3]:
             motor_nde_temp = st.number_input("Motor NDE (°C)", min_value=0, max_value=150,
-                                            value=66, step=1, key="temp_motor_nde")
+                                             value=66, step=1, key="temp_motor_nde")
             temp_data["Motor_NDE"] = motor_nde_temp
             if motor_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
                 st.error(f"🔴 {motor_nde_temp}°C - Warning")
@@ -903,22 +933,23 @@ def main():
                 st.success(f"🟢 {motor_nde_temp}°C - Normal")
         
         st.divider()
-        
         st.subheader("📊 Input Data 12 Titik Pengukuran")
+        
         points = [f"{machine} {end} {direction}"
-                 for machine in ["Pump", "Motor"]
-                 for end in ["DE", "NDE"]
-                 for direction in ["Horizontal", "Vertical", "Axial"]]
+                  for machine in ["Pump", "Motor"]
+                  for end in ["DE", "NDE"]
+                  for direction in ["Horizontal", "Vertical", "Axial"]]
         
         input_data = {}
         bands_inputs = {}
-        cols = st.columns(3)
         
+        # Display all 12 points in 3 columns
+        cols = st.columns(3)
         for idx, point in enumerate(points):
             with cols[idx % 3]:
                 with st.expander(f"📍 {point}", expanded=False):
                     overall = st.number_input("Overall Vel (mm/s)", min_value=0.0, max_value=30.0,
-                                             value=1.0, step=0.1, key=f"mech_vel_{point}")
+                                              value=1.0, step=0.1, key=f"mech_vel_{point}")
                     input_data[point] = overall
                     
                     st.caption("Freq Bands (g) - Bearing")
@@ -930,62 +961,92 @@ def main():
                     if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
                         st.error(f"⚠️ {overall} mm/s (High)")
         
-        champ_point = max(input_data, key=input_data.get)
-        champ_vel = input_data[champ_point]
-        fft_champ_peaks = []
+        # MULTI-POINT FIX: Identify ALL problematic points, not just champion
+        problematic_points = [p for p, v in input_data.items() 
+                             if v > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]]
         
-        if champ_vel > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+        if problematic_points:
             st.markdown(f"""
             <div style="background-color:#ffeeba; padding:15px; border-radius:8px; border-left:5px solid #ffc107; margin-top:20px;">
-            <h4 style="margin:0; color:#856404;">🎯 Analisa Lanjutan Diperlukan</h4>
+            <h4 style="margin:0; color:#856404;">🎯 Multi-Point Detection: {len(problematic_points)} Titik Bermasalah</h4>
             <p style="margin:5px 0 0 0; color:#856404;">
-            Terdeteksi vibrasi dominan pada <b>{champ_point}</b> ({champ_vel:.1f} mm/s).<br>
-            Silakan masukkan data Spektrum FFT <b>hanya untuk titik ini</b>.
+            Titik dengan vibrasi tinggi: <b>{', '.join(problematic_points)}</b><br>
+            Silakan masukkan data Spektrum FFT untuk <b>semua titik yang ditandai</b>.
             </p>
             </div>
             """, unsafe_allow_html=True)
             
-            with st.expander(f"📈 Input FFT Spectrum untuk: {champ_point}", expanded=True):
-                rpm_hz = rpm / 60
-                for i in range(1, 4):
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        default_freq = rpm_hz * i
-                        freq = st.number_input(f"Peak {i} Freq (Hz)", min_value=0.1, value=default_freq, key=f"fft_f_{i}")
-                    with c2:
-                        amp = st.number_input(f"Peak {i} Amp (mm/s)", min_value=0.01, value=1.0, step=0.1, key=f"fft_a_{i}")
-                    fft_champ_peaks.append((freq, amp))
+            # MULTI-POINT FIX: Show FFT input for ALL problematic points
+            fft_data_dict = {}
+            for point in problematic_points:
+                with st.expander(f"📈 Input FFT Spectrum untuk: {point}", expanded=True):
+                    rpm_hz = rpm / 60
+                    point_fft_peaks = []
+                    for i in range(1, 4):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            default_freq = rpm_hz * i
+                            freq = st.number_input(f"Peak {i} Freq (Hz)", min_value=0.1, 
+                                                   value=default_freq, key=f"fft_f_{point}_{i}")
+                        with c2:
+                            amp = st.number_input(f"Peak {i} Amp (mm/s)", min_value=0.01, 
+                                                  value=1.0, step=0.1, key=f"fft_a_{point}_{i}")
+                        point_fft_peaks.append((freq, amp))
+                    fft_data_dict[point] = point_fft_peaks
         else:
             rpm_hz = rpm / 60
-            fft_champ_peaks = [(rpm_hz, 0.1), (2*rpm_hz, 0.05)]
+            fft_data_dict = {p: [(rpm_hz, 0.1), (2*rpm_hz, 0.05)] for p in points}
             st.success("✅ Semua titik vibrasi dalam batas normal.")
         
         if st.button("🔍 Jalankan Mechanical Analysis", type="primary", key="run_mech"):
             with st.spinner("Menganalisis pola getaran..."):
                 mech_system = diagnose_mechanical_system(
-                    input_data, bands_inputs, fft_champ_peaks, rpm/60, temp_data
+                    input_data, bands_inputs, fft_data_dict, rpm/60, temp_data
                 )
                 st.session_state.mech_result = mech_system
                 st.session_state.mech_data = {
                     "points": {p: {"velocity": input_data[p], "bands": bands_inputs[p]} for p in points},
+                    "point_diagnoses": mech_system["point_diagnoses"],
                     "system_diagnosis": mech_system["diagnosis"],
-                    "champion_point": mech_system["champion_point"]
+                    "champion_points": mech_system["champion_points"]
                 }
                 st.session_state.temp_data = temp_data
                 st.success(f"✅ Analisis Selesai: {mech_system['diagnosis']}")
         
         if "mech_result" in st.session_state:
             result = st.session_state.mech_result
+            
+            # MULTI-POINT: Show all champion points
+            champion_points = result.get("champion_points", [])
+            if isinstance(champion_points, list):
+                points_display = ", ".join(champion_points)
+            else:
+                points_display = champion_points
+            
             col_a, col_b, col_c = st.columns(3)
             with col_a:
                 st.metric("Diagnosis Utama", result["diagnosis"])
             with col_b:
-                st.metric("Titik Sumber", result["champion_point"])
+                st.metric("Titik Sumber", points_display)
             with col_c:
                 st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
             
+            # MULTI-POINT: Show recommendations for all problematic points
             if result["diagnosis"] != "Normal":
-                st.info(get_mechanical_recommendation(result["diagnosis"], result["champion_point"], result["severity"]))
+                st.info(get_mechanical_recommendation(result["diagnosis"], points_display, result["severity"]))
+                
+                # Show per-point diagnosis table
+                st.subheader("📋 Diagnosis Per Titik")
+                point_df_data = []
+                for point, diag in result.get("point_diagnoses", {}).items():
+                    point_df_data.append({
+                        "Titik": point,
+                        "Velocity (mm/s)": diag.get("velocity", 0),
+                        "Fault Type": diag.get("fault_type", "normal"),
+                        "Severity": diag.get("severity", "Low")
+                    })
+                point_df = pd.DataFrame(point_df_data)
+                st.dataframe(point_df, use_container_width=True)
     
     # TAB 2: HYDRAULIC
     with tab_hyd:
@@ -1013,57 +1074,59 @@ def main():
         
         with col1:
             suction_pressure = st.number_input("Suction Pressure [bar]", min_value=-1.0,
-                                              value=0.44, step=0.01, key="suction_p")
+                                               value=0.44, step=0.01, key="suction_p")
             discharge_pressure = st.number_input("Discharge Pressure [bar]", min_value=0.0,
-                                                value=3.73, step=0.01, key="discharge_p")
+                                                 value=3.73, step=0.01, key="discharge_p")
             delta_p = discharge_pressure - suction_pressure
             st.metric("ΔP", f"{delta_p:.2f} bar")
         
         with col2:
             flow_rate = st.number_input("Flow Rate [m³/h]", min_value=0.0, value=100.0,
-                                       step=1.0, key="flow_rate")
+                                        step=1.0, key="flow_rate")
             motor_power = st.number_input("Motor Power [kW]", min_value=0.0,
-                                         value=15.0, step=0.5, key="motor_power")
+                                          value=15.0, step=0.5, key="motor_power")
         
         with col3:
             fluid_props = FLUID_PROPERTIES[fluid_type]
             sg = st.number_input("Specific Gravity", min_value=0.5, max_value=1.5,
-                                value=fluid_props["sg"], step=0.01, key="sg_input")
+                                 value=fluid_props["sg"], step=0.01, key="sg_input")
         
         with st.expander("📋 Data Nameplate", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
                 rated_flow = st.number_input("Rated Flow Q [m³/h]", min_value=0.0,
-                                            value=100.0, step=1.0, key="rated_flow")
+                                             value=100.0, step=1.0, key="rated_flow")
                 rated_head = st.number_input("Rated Head H [m]", min_value=0.0,
-                                            value=59.73, step=0.1, key="rated_head")
+                                             value=59.73, step=0.1, key="rated_head")
             with col2:
                 bep_efficiency = st.number_input("BEP Efficiency [%] (Optional)",
-                                                min_value=0, max_value=100, value=0, step=1,
-                                                key="bep_eff")
+                                                 min_value=0, max_value=100, value=0, step=1,
+                                                 key="bep_eff")
                 npsh_required = st.number_input("NPSH Required [m] (Optional)",
-                                               min_value=0.0, value=0.0, step=0.1,
-                                               key="npshr")
-            
-            estimation_notes = []
-            if bep_efficiency <= 0:
-                bep_efficiency = estimate_bep_efficiency(rated_flow, rated_head, motor_power, sg)
-                estimation_notes.append(f"BEP diestimasi: {bep_efficiency:.1f}%")
-            if npsh_required <= 0:
-                npsh_required = estimate_npshr_conservative(rated_flow)
-                estimation_notes.append(f"NPSHr diestimasi: {npsh_required:.1f}m")
-            if estimation_notes:
-                st.info("🔧 **Auto-Estimation:** " + " | ".join(estimation_notes))
+                                                min_value=0.0, value=0.0, step=0.1,
+                                                key="npshr")
+        
+        estimation_notes = []
+        if bep_efficiency <= 0:
+            bep_efficiency = estimate_bep_efficiency(rated_flow, rated_head, motor_power, sg)
+            estimation_notes.append(f"BEP diestimasi: {bep_efficiency:.1f}%")
+        if npsh_required <= 0:
+            npsh_required = estimate_npshr_conservative(rated_flow)
+            estimation_notes.append(f"NPSHr diestimasi: {npsh_required:.1f}m")
+        
+        if estimation_notes:
+            st.info("🔧 **Auto-Estimation:** " + " | ".join(estimation_notes))
         
         with st.expander("🔍 Observasi Lapangan (Optional)", expanded=False):
             noise_type = st.radio("Jenis Noise", ["Normal", "Whining", "Grinding", "Crackling"],
-                                 index=0, key="noise_type")
+                                  index=0, key="noise_type")
             fluid_condition = st.radio("Kondisi Fluida", ["Jernih", "Agak keruh", "Keruh"],
-                                      index=0, key="fluid_cond")
+                                       index=0, key="fluid_cond")
         
         analyze_hyd_disabled = suction_pressure >= discharge_pressure
+        
         if st.button("💧 Generate Diagnosis", type="primary", key="run_hyd",
-                    disabled=analyze_hyd_disabled):
+                     disabled=analyze_hyd_disabled):
             with st.spinner("Menganalisis performa hidrolik..."):
                 hyd_calc = calculate_hydraulic_parameters(
                     suction_pressure, discharge_pressure, flow_rate,
@@ -1128,10 +1191,10 @@ def main():
             col1, col2 = st.columns(2)
             with col1:
                 rated_voltage = st.number_input("Rated Voltage (V)", min_value=200, max_value=690,
-                                               value=400, step=10, key="rated_v")
+                                                value=400, step=10, key="rated_v")
             with col2:
                 fla = st.number_input("Full Load Amps - FLA (A)", min_value=10, max_value=500,
-                                     value=85, step=5, key="rated_i")
+                                      value=85, step=5, key="rated_i")
         
         st.subheader("📊 Pengukuran 3-Phase")
         col1, col2 = st.columns(2)
@@ -1190,7 +1253,7 @@ def main():
     # TAB 4: INTEGRATED
     with tab_integrated:
         st.header("🔗 Integrated Diagnostic Summary")
-        st.caption("Cross-Domain Correlation | Temperature Analysis")
+        st.caption("Cross-Domain Correlation | Temperature Analysis | Multi-Point Support")
         
         analyses_complete = all([
             "mech_result" in st.session_state,
@@ -1206,6 +1269,7 @@ def main():
             3. Jalankan analisis di tab **⚡ Electrical**
             4. Kembali ke tab ini untuk integrated diagnosis
             """)
+            
             col1, col2, col3 = st.columns(3)
             with col1:
                 status_mech = "✅" if "mech_result" in st.session_state else "⏳"
@@ -1266,6 +1330,11 @@ def main():
             with col5:
                 temp_status = "Available" if temp_data else "N/A"
                 st.metric("Temperature Data", temp_status)
+            
+            # MULTI-POINT: Show all affected points
+            affected_points = integrated_result.get("affected_points", [])
+            if affected_points and affected_points != ["Tidak Ada (Normal)"]:
+                st.warning(f"📍 **Titik Terpengaruh:** {', '.join(affected_points)}")
             
             st.divider()
             st.subheader("📥 Export Report")
