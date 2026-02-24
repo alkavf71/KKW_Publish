@@ -794,80 +794,44 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
 
 
 # ============================================================================
-# REPORT GENERATION
+# FUNGSI EXPORT REPORT (CSV & HTML)
 # ============================================================================
-def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
-                                elec_data, integrated_result, temp_data=None):
+def generate_unified_csv_report(machine_id, rpm, mech_data, hyd_data, elec_data, cross_data):
     lines = []
-    lines.append(f"MULTI-DOMAIN PUMP DIAGNOSTIC REPORT - {machine_id.upper()}")
-    lines.append(f"Generated: {timestamp}")
-    lines.append(f"RPM: {rpm} | 1x RPM: {rpm/60:.2f} Hz")
-    lines.append(f"Standards: ISO 10816-3/7 (Mech) | API 610 (Hyd) | IEC 60034 (Elec)")
+    lines.append(f"RELIABILITY INSPECTION REPORT - {machine_id}")
+    lines.append(f"Rated RPM,{rpm}")
+    lines.append("Generated On,24 Februari 2026")
     lines.append("")
-    
-    if temp_data:
-        lines.append("=== BEARING TEMPERATURE ===")
-        lines.append(f"Pump_DE: {temp_data.get('Pump_DE', 'N/A')}°C | Pump_NDE: {temp_data.get('Pump_NDE', 'N/A')}°C")
-        lines.append(f"Motor_DE: {temp_data.get('Motor_DE', 'N/A')}°C | Motor_NDE: {temp_data.get('Motor_NDE', 'N/A')}°C")
-        if temp_data.get('Pump_DE') and temp_data.get('Pump_NDE'):
-            lines.append(f"Pump ΔT (DE-NDE): {abs(temp_data['Pump_DE'] - temp_data['Pump_NDE']):.1f}°C")
-        if temp_data.get('Motor_DE') and temp_data.get('Motor_NDE'):
-            lines.append(f"Motor ΔT (DE-NDE): {abs(temp_data['Motor_DE'] - temp_data['Motor_NDE']):.1f}°C")
-        lines.append("")
-    
+
+    lines.append("=== INTEGRATED SUMMARY ===")
+    lines.append(f"System Diagnosis,{cross_data.get('diagnosis', 'Normal')}")
+    lines.append("")
+
     lines.append("=== MECHANICAL VIBRATION ===")
     if mech_data.get("points"):
-        # Header CSV diubah: Menghapus kolom Diagnosis, Confidence, dan Severity per titik
         lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g)")
         for point, data in mech_data["points"].items():
-            # Memanggil data velocity dan bands saja
             lines.append(f"{point},{data['velocity']:.2f},{data['bands']['Band1']:.3f},{data['bands']['Band2']:.3f},{data['bands']['Band3']:.3f}")
-        
-        # Menampilkan diagnosis sistem secara keseluruhan
-        lines.append(f"System Diagnosis: {mech_data.get('system_diagnosis', 'N/A')}")
-        lines.append(f"Root Cause Point: {mech_data.get('champion_point', 'N/A')}")
-        lines.append("")
-    
-    lines.append("=== HYDRAULIC PERFORMANCE (Single-Point) ===")
-    if hyd_data.get("measurements"):
-        m = hyd_data["measurements"]
-        lines.append(f"Fluid: {hyd_data.get('fluid_type', 'N/A')} | SG: {hyd_data.get('sg', 'N/A')}")
-        lines.append(f"Suction: {m.get('suction_pressure', 0):.2f} bar | Discharge: {m.get('discharge_pressure', 0):.2f} bar")
-        lines.append(f"Flow: {m.get('flow_rate', 0):.1f} m³/h | Power: {m.get('motor_power', 0):.1f} kW")
-        lines.append(f"Calculated Head: {hyd_data.get('head_m', 0):.1f} m | Efficiency: {hyd_data.get('efficiency_percent', 0):.1f}%")
-        lines.append(f"NPSH Margin: {hyd_data.get('npsh_margin_m', 0):.2f} m")
-        lines.append(f"Diagnosis: {hyd_data.get('diagnosis', 'N/A')} | Confidence: {hyd_data.get('confidence', 0)}% | Severity: {hyd_data.get('severity', 'N/A')}")
-        lines.append("")
-    
-    lines.append("=== ELECTRICAL CONDITION (3-Phase) ===")
-    if elec_data.get("measurements"):
-        e = elec_data["measurements"]
-        lines.append(f"Voltage L1-L2: {e.get('v_l1l2', 0):.1f}V | L2-L3: {e.get('v_l2l3', 0):.1f}V | L3-L1: {e.get('v_l3l1', 0):.1f}V")
-        lines.append(f"Current L1: {e.get('i_l1', 0):.1f}A | L2: {e.get('i_l2', 0):.1f}A | L3: {e.get('i_l3', 0):.1f}A")
-        lines.append(f"Voltage Unbalance: {elec_data.get('voltage_unbalance', 0):.2f}% | Current Unbalance: {elec_data.get('current_unbalance', 0):.2f}%")
-        lines.append(f"Load Estimate: {elec_data.get('load_estimate', 0):.1f}%")
-        lines.append(f"Diagnosis: {elec_data.get('diagnosis', 'N/A')} | Confidence: {elec_data.get('confidence', 0)}% | Severity: {elec_data.get('severity', 'N/A')}")
-        lines.append("")
-    
-    lines.append("=== INTEGRATED DIAGNOSIS ===")
-    lines.append(f"Overall Diagnosis: {integrated_result.get('diagnosis', 'N/A')}")
-    lines.append(f"Overall Confidence: {integrated_result.get('confidence', 0)}%")
-    lines.append(f"Overall Severity: {integrated_result.get('severity', 'N/A')}")
-    lines.append(f"Correlation Notes: {'; '.join(integrated_result.get('correlation_notes', []))}")
-    if integrated_result.get("temperature_notes"):
-        lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
+        lines.append(f"System Diagnosis,{mech_data.get('system_diagnosis', 'N/A')}")
+        lines.append(f"Root Cause Point,{mech_data.get('champion_point', 'N/A')}")
     lines.append("")
-    
+
+    lines.append("=== HYDRAULIC PERFORMANCE ===")
+    lines.append(f"Diagnosis,{hyd_data.get('diagnosis', 'N/A')}")
+    lines.append("")
+
+    lines.append("=== ELECTRICAL CONDITION ===")
+    lines.append(f"Diagnosis,{elec_data.get('diagnosis', 'N/A')}")
+    lines.append("")
+
     return "\n".join(lines)
 
 def generate_html_report(machine_id, rpm, mech_data, hyd_data, elec_data, cross_data):
-    # Mengambil diagnosis utama (aman dari error KeyError)
     mech_diag = mech_data.get("system_diagnosis", "N/A")
     hyd_diag = hyd_data.get("diagnosis", "N/A")
     elec_diag = elec_data.get("diagnosis", "N/A")
     cross_diag = cross_data.get("diagnosis", "Normal")
     
-    # Template HTML & CSS (Desain Laporan)
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -888,62 +852,39 @@ def generate_html_report(machine_id, rpm, mech_data, hyd_data, elec_data, cross_
         </style>
     </head>
     <body>
-
         <div class="header">
             <h1>DIGITAL RELIABILITY ASSISTANT - INSPECTION REPORT</h1>
             <p><strong>Equipment ID:</strong> {machine_id} | <strong>Rated Speed:</strong> {rpm} RPM</p>
             <p><strong>Date Generated:</strong> 24 Februari 2026</p>
         </div>
-
         <div class="section">
             <div class="section-title">🔗 INTEGRATED SUMMARY (CROSS-DOMAIN)</div>
             <table>
-                <tr>
-                    <th style="width: 30%;">Overall System Status</th>
-                    <td class="{'alert' if cross_diag != 'Normal' else ''}">{cross_diag}</td>
-                </tr>
+                <tr><th style="width: 30%;">Overall System Status</th><td class="{'alert' if cross_diag != 'Normal' else ''}">{cross_diag}</td></tr>
             </table>
         </div>
-
         <div class="section">
             <div class="section-title">⚙️ MECHANICAL VIBRATION</div>
             <table>
-                <tr>
-                    <th style="width: 30%;">System Diagnosis</th>
-                    <td class="{'alert' if mech_diag not in ['Normal', 'N/A'] else ''}">{mech_diag}</td>
-                </tr>
-                <tr>
-                    <th>Root Cause Point</th>
-                    <td>{mech_data.get("champion_point", "N/A")}</td>
-                </tr>
+                <tr><th style="width: 30%;">System Diagnosis</th><td class="{'alert' if mech_diag not in ['Normal', 'N/A'] else ''}">{mech_diag}</td></tr>
+                <tr><th>Root Cause Point</th><td>{mech_data.get("champion_point", "N/A")}</td></tr>
             </table>
         </div>
-
         <div class="section">
             <div class="section-title">💧 HYDRAULIC PERFORMANCE</div>
             <table>
-                <tr>
-                    <th style="width: 30%;">Diagnosis</th>
-                    <td class="{'alert' if hyd_diag not in ['NORMAL_OPERATION', 'N/A'] else ''}">{hyd_diag}</td>
-                </tr>
+                <tr><th style="width: 30%;">Diagnosis</th><td class="{'alert' if hyd_diag not in ['NORMAL_OPERATION', 'N/A'] else ''}">{hyd_diag}</td></tr>
             </table>
         </div>
-
         <div class="section">
             <div class="section-title">⚡ ELECTRICAL CONDITION</div>
             <table>
-                <tr>
-                    <th style="width: 30%;">Diagnosis</th>
-                    <td class="{'alert' if elec_diag not in ['NORMAL_ELECTRICAL', 'N/A'] else ''}">{elec_diag}</td>
-                </tr>
+                <tr><th style="width: 30%;">Diagnosis</th><td class="{'alert' if elec_diag not in ['NORMAL_ELECTRICAL', 'N/A'] else ''}">{elec_diag}</td></tr>
             </table>
         </div>
-
         <div class="footer">
-            <p>Generated by Digital Reliability Assistant System</p>
-            <p>CONFIDENTIAL & PROPRIETARY</p>
+            <p>Generated by Digital Reliability Assistant System - Pertamina IT Makassar</p>
         </div>
-
     </body>
     </html>
     """
