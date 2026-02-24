@@ -885,9 +885,9 @@ def main():
         """)
         
         st.divider()
-        st.subheader("🧭 Navigasi Cepat")
+        st.subheader("🧭 Navigasi")
         st.markdown("""
-        - 🔧 **Mechanical**: Vibration analysis (12 points)
+        - 🔧 **Mechanical**: Vibration analysis
         - 💧 **Hydraulic**: Performance troubleshooting
         - ⚡ **Electrical**: 3-phase condition monitoring
         - 🔗 **Integrated**: Cross-domain correlation
