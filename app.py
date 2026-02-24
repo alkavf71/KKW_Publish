@@ -16,11 +16,13 @@ ISO_LIMITS_VELOCITY = {
     "Zone C (Unacceptable)": 7.1,
     "Zone D (Danger)": 11.0
 }
+
 ACCEL_BASELINE = {
     "Band1 (0.5-1.5kHz)": 0.3,
     "Band2 (1.5-5kHz)": 0.2,
     "Band3 (5-16kHz)": 0.15
 }
+
 # --- Bearing Temperature Thresholds (IEC 60034-1, API 610, SKF) ---
 BEARING_TEMP_LIMITS = {
     "normal_max": 70,
@@ -32,6 +34,7 @@ BEARING_TEMP_LIMITS = {
     "delta_threshold": 15,
     "ambient_reference": 30
 }
+
 # --- Hydraulic Fluid Properties (BBM Specific - Pertamina) ---
 FLUID_PROPERTIES = {
     "Pertalite (RON 90)": {
@@ -56,6 +59,7 @@ FLUID_PROPERTIES = {
         "risk_level": "Moderate"
     }
 }
+
 # --- Electrical Thresholds (IEC 60034-1 & Practical Limits) ---
 ELECTRICAL_LIMITS = {
     "voltage_unbalance_warning": 1.0,
@@ -404,18 +408,15 @@ def diagnose_electrical_condition(electrical_calc, motor_specs):
 # FUNGSI DIAGNOSA - MECHANICAL DOMAIN (MULTI-POINT SUPPORT)
 # ============================================================================
 def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp_data):
-    """
-    fft_data_dict: dictionary dengan key=point_name, value=list of (freq, amp) tuples
-    """
     result = {
         "diagnosis": "Normal",
         "confidence": 99,
         "severity": "Low",
         "fault_type": "normal",
         "domain": "mechanical",
-        "champion_points": [],  # MULTI-POINT: sekarang list, bukan single value
+        "champion_points": [],
         "temperature_notes": [],
-        "point_diagnoses": {}  # MULTI-POINT: simpan diagnosis per titik
+        "point_diagnoses": {}
     }
     
     limit_warning = ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]
@@ -426,7 +427,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
     base2 = ACCEL_BASELINE["Band2 (1.5-5kHz)"]
     base1 = ACCEL_BASELINE["Band1 (0.5-1.5kHz)"]
     
-    # MULTI-POINT: Track semua titik yang bermasalah
     problematic_points = []
     
     for point, bands in bands_data.items():
@@ -442,7 +442,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
             "severity": "Low"
         }
         
-        # Check bearing faults per point
         if b1 > 2.5 * base1 and b2 > 1.5 * base2:
             point_diagnosis["fault_type"] = "BEARING_SEVERE"
             point_diagnosis["severity"] = "High"
@@ -464,7 +463,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
             bearing_diag = "BEARING_EARLY"
             problematic_points.append(point)
         
-        # Check low frequency faults per point
         if vel > limit_warning:
             low_freq_severity = "High" if vel > limit_danger else "Medium"
             parts = point.split()
@@ -475,7 +473,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
             else:
                 machine, end, direction = "Pump", "DE", "Horizontal"
             
-            # Get FFT data for this specific point (MULTI-POINT FIX)
             fft_champ_data = fft_data_dict.get(point, [(rpm_hz, 0.1), (2*rpm_hz, 0.05)])
             
             amp_1x = next((p[1] for p in fft_champ_data if abs(p[0]-rpm_hz) < 0.05*rpm_hz), 0)
@@ -507,16 +504,13 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
         
         result["point_diagnoses"][point] = point_diagnosis
     
-    # MULTI-POINT: Set all problematic points as champion points
     result["champion_points"] = problematic_points if problematic_points else ["Tidak Ada (Normal)"]
     
-    # Determine overall system diagnosis based on worst case
     if any(p["severity"] == "High" for p in result["point_diagnoses"].values()):
         result["severity"] = "High"
     elif any(p["severity"] == "Medium" for p in result["point_diagnoses"].values()):
         result["severity"] = "Medium"
     
-    # Set primary diagnosis based on most severe fault
     high_freq_faults = ["BEARING_SEVERE", "BEARING_DEVELOPED", "BEARING_EARLY"]
     low_freq_faults = ["UNBALANCE", "MISALIGNMENT", "LOOSENESS"]
     
@@ -540,9 +534,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
 # FUNGSI DIAGNOSA - HYDRAULIC DOMAIN (REVISI - TANPA OBSERVASI)
 # ============================================================================
 def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, context):
-    """
-    Diagnosa hydraulic murni berdasarkan parameter fisika (tanpa observasi subjektif)
-    """
     result = {
         "diagnosis": "NORMAL_OPERATION",
         "confidence": 95,
@@ -564,7 +555,6 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
     )
     result["details"]["deviations"] = deviations
     
-    # === NPSH CALCULATION (Objective Physics-Based) ===
     suction_pressure_bar = context.get("suction_pressure_bar", 0)
     vapor_pressure_kpa = fluid_props.get("vapor_pressure_kpa_38C", 0)
     sg = fluid_props.get("sg", 0.84)
@@ -574,7 +564,6 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
     npsh_margin = npsha_estimated - npshr
     result["details"]["npsh_margin_m"] = npsh_margin
     
-    # === CAVITATION DETECTION (NPSH-Based, NOT Noise-Based) ===
     if npsh_margin < 0.5:
         result["diagnosis"] = "CAVITATION"
         result["confidence"] = min(90, 70 + int((0.5 - npsh_margin) * 20) if npsh_margin < 0.5 else 70)
@@ -582,7 +571,6 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
         result["fault_type"] = "cavitation"
         return result
     
-    # === OTHER HYDRAULIC FAULTS ===
     if pattern == "UNDER_PERFORMANCE":
         result["diagnosis"] = "IMPELLER_WEAR"
         result["confidence"] = min(85, 60 + int(abs(deviations.get("head_dev", 0)) * 2))
@@ -618,15 +606,9 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
     return result
 
 # ============================================================================
-# 🔥 FUZZY LOGIC CONFIDENCE CALCULATION (NEW FUNCTION)
+# 🔥 FUZZY LOGIC CONFIDENCE CALCULATION
 # ============================================================================
 def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=None):
-    """
-    FUZZY LOGIC untuk confidence aggregation
-    Mempertimbangkan: domain agreement, confidence consistency, severity alignment, temperature support
-    """
-    
-    # === FACTOR 1: Domain Agreement (berapa domain yang detect fault?) ===
     diagnoses = [
         mech_result.get("diagnosis", "Normal"),
         hyd_result.get("diagnosis", "Normal"),
@@ -636,13 +618,12 @@ def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=N
     non_normal = [d for d in diagnoses if d not in normal_diagnoses]
     
     if len(non_normal) >= 2:
-        domain_agreement = 0.9  # 2+ domain detect fault (strong correlation)
+        domain_agreement = 0.9
     elif len(non_normal) == 1:
-        domain_agreement = 0.6  # 1 domain detect fault (isolated)
+        domain_agreement = 0.6
     else:
-        domain_agreement = 0.8  # All normal (good condition)
+        domain_agreement = 0.8
     
-    # === FACTOR 2: Confidence Consistency (apakah confidence values mirip?) ===
     confidences = [
         mech_result.get("confidence", 50),
         hyd_result.get("confidence", 50),
@@ -651,13 +632,12 @@ def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=N
     conf_std = np.std(confidences)
     
     if conf_std < 10:
-        conf_consistency = 0.9  # Very consistent (std < 10)
+        conf_consistency = 0.9
     elif conf_std < 20:
-        conf_consistency = 0.7  # Moderately consistent (std 10-20)
+        conf_consistency = 0.7
     else:
-        conf_consistency = 0.5  # Inconsistent (std > 20)
+        conf_consistency = 0.5
     
-    # === FACTOR 3: Severity Alignment (apakah severity levels konsisten?) ===
     severities = [
         mech_result.get("severity", "Low"),
         hyd_result.get("severity", "Low"),
@@ -668,37 +648,34 @@ def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=N
     severity_std = np.std(severity_values)
     
     if severity_std < 0.5:
-        severity_alignment = 0.9  # All same severity
+        severity_alignment = 0.9
     elif severity_std < 1.0:
-        severity_alignment = 0.7  # Close severity (e.g., Low-Medium)
+        severity_alignment = 0.7
     else:
-        severity_alignment = 0.5  # Conflicting severity (e.g., Low-High)
+        severity_alignment = 0.5
     
-    # === FACTOR 4: Temperature Support (apakah temperature confirm fault?) ===
-    temp_support = 0.7  # Default (no temp data or neutral)
+    temp_support = 0.7
     if temp_data:
         high_temps = sum(1 for t in temp_data.values() if t and t > 80)
         critical_temps = sum(1 for t in temp_data.values() if t and t > 90)
         
         if critical_temps >= 1:
-            temp_support = 0.9  # Strong thermal confirmation (critical temp)
+            temp_support = 0.9
         elif high_temps >= 2:
-            temp_support = 0.85  # Strong thermal confirmation (multiple elevated)
+            temp_support = 0.85
         elif high_temps == 1:
-            temp_support = 0.75  # Moderate confirmation
+            temp_support = 0.75
         else:
-            temp_support = 0.7  # No thermal confirmation
+            temp_support = 0.7
     
-    # === FACTOR 5: Base Confidence Average ===
-    base_conf = np.mean(confidences) / 100  # Normalize to 0-1
+    base_conf = np.mean(confidences) / 100
     
-    # === FUZZY RULES - Weighted Combination ===
     weights = {
-        "domain_agreement": 0.25,      # Most important: cross-domain correlation
-        "conf_consistency": 0.20,      # Important: consistent confidence
-        "severity_alignment": 0.20,    # Important: consistent severity
-        "temp_support": 0.15,          # Moderate: thermal confirmation
-        "base_conf": 0.20              # Moderate: individual domain confidence
+        "domain_agreement": 0.25,
+        "conf_consistency": 0.20,
+        "severity_alignment": 0.20,
+        "temp_support": 0.15,
+        "base_conf": 0.20
     }
     
     fuzzy_score = (
@@ -709,10 +686,8 @@ def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=N
         base_conf * weights["base_conf"]
     )
     
-    # === DEFUZZIFICATION - Convert to 0-100% ===
     final_confidence = min(95, max(40, int(fuzzy_score * 100)))
     
-    # === RETURN WITH BREAKDOWN (for transparency) ===
     return final_confidence, {
         "domain_agreement": round(domain_agreement * 100),
         "conf_consistency": round(conf_consistency * 100),
@@ -722,7 +697,7 @@ def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=N
     }
 
 # ============================================================================
-# CROSS-DOMAIN INTEGRATION LOGIC (UPDATED WITH FUZZY CONFIDENCE)
+# CROSS-DOMAIN INTEGRATION LOGIC (WITH FUZZY CONFIDENCE)
 # ============================================================================
 def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                                      shared_context, temp_data=None):
@@ -734,8 +709,8 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
         "domain_breakdown": {},
         "correlation_notes": [],
         "temperature_notes": [],
-        "affected_points": [],  # MULTI-POINT: track all affected points
-        "confidence_breakdown": {}  # FUZZY: Add breakdown for transparency
+        "affected_points": [],
+        "confidence_breakdown": {}
     }
     
     system_result["domain_breakdown"] = {
@@ -751,7 +726,6 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
     hyd_sev = hyd_result.get("severity", "Low")
     elec_sev = elec_result.get("severity", "Low")
     
-    # MULTI-POINT: Get all affected mechanical points
     system_result["affected_points"] = mech_result.get("champion_points", [])
     
     correlation_bonus = 0
@@ -806,15 +780,11 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                 correlated_faults.append("⚠️ Critical bearing temperature detected")
                 break
     
-    # ========================================================================
-    # 🔥 FUZZY CONFIDENCE CALCULATION (REPLACES SIMPLE AVERAGE)
-    # ========================================================================
     final_confidence, confidence_breakdown = calculate_fuzzy_confidence(
         mech_result, hyd_result, elec_result, temp_data
     )
     system_result["confidence"] = final_confidence
     system_result["confidence_breakdown"] = confidence_breakdown
-    # ========================================================================
     
     system_result["correlation_notes"] = correlated_faults if correlated_faults else ["Tidak ada korelasi kuat antar domain terdeteksi"]
     
@@ -864,7 +834,6 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
                 status = "Zone_A"
             lines.append(f"{point},{vel:.2f},{b1:.3f},{b2:.3f},{b3:.3f},{status},{point_fault}")
         lines.append(f"System Diagnosis: {mech_data.get('system_diagnosis', 'N/A')}")
-        # MULTI-POINT: Show all champion points
         champion_points = mech_data.get('champion_points', [])
         if isinstance(champion_points, list):
             lines.append(f"Champion Points: {', '.join(champion_points)}")
@@ -902,7 +871,6 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
     if integrated_result.get("temperature_notes"):
         lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
     
-    # FUZZY: Add confidence breakdown to report
     if integrated_result.get("confidence_breakdown"):
         lines.append("")
         lines.append("=== CONFIDENCE BREAKDOWN (Fuzzy Logic) ===")
@@ -1001,7 +969,6 @@ def main():
             int_done = "✅" if "integrated_result" in st.session_state else "⏳"
             st.write(f"{int_done} Integrated")
     
-    # CREATE TABS - WAJIB DI LUAR IF/ELSE
     tab_mech, tab_hyd, tab_elec, tab_integrated = st.tabs([
         "🔧 Mechanical", "💧 Hydraulic", "⚡ Electrical", "🔗 Integrated Summary"
     ])
@@ -1070,7 +1037,6 @@ def main():
         input_data = {}
         bands_inputs = {}
         
-        # Display all 12 points in 3 columns
         cols = st.columns(3)
         for idx, point in enumerate(points):
             with cols[idx % 3]:
@@ -1088,7 +1054,6 @@ def main():
                     if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
                         st.error(f"⚠️ {overall} mm/s (High)")
         
-        # MULTI-POINT FIX: Identify ALL problematic points, not just champion
         problematic_points = [p for p, v in input_data.items() 
                              if v > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]]
         
@@ -1103,7 +1068,6 @@ def main():
             </div>
             """, unsafe_allow_html=True)
             
-            # MULTI-POINT FIX: Show FFT input for ALL problematic points
             fft_data_dict = {}
             for point in problematic_points:
                 with st.expander(f"📈 Input FFT Spectrum untuk: {point}", expanded=True):
@@ -1143,7 +1107,6 @@ def main():
         if "mech_result" in st.session_state:
             result = st.session_state.mech_result
             
-            # MULTI-POINT: Show all champion points
             champion_points = result.get("champion_points", [])
             if isinstance(champion_points, list):
                 points_display = ", ".join(champion_points)
@@ -1158,11 +1121,9 @@ def main():
             with col_c:
                 st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
             
-            # MULTI-POINT: Show recommendations for all problematic points
             if result["diagnosis"] != "Normal":
                 st.info(get_mechanical_recommendation(result["diagnosis"], points_display, result["severity"]))
                 
-                # Show per-point diagnosis table
                 st.subheader("📋 Diagnosis Per Titik")
                 point_df_data = []
                 for point, diag in result.get("point_diagnoses", {}).items():
@@ -1448,14 +1409,10 @@ def main():
                 temp_status = "Available" if temp_data else "N/A"
                 st.metric("Temperature Data", temp_status)
             
-            # MULTI-POINT: Show all affected points
             affected_points = integrated_result.get("affected_points", [])
             if affected_points and affected_points != ["Tidak Ada (Normal)"]:
                 st.warning(f"📍 **Titik Terpengaruh:** {', '.join(affected_points)}")
             
-            # ========================================================================
-            # 🔥 FUZZY CONFIDENCE BREAKDOWN DISPLAY (NEW UI ELEMENT)
-            # ========================================================================
             st.divider()
             st.subheader("🔍 Confidence Breakdown (Fuzzy Logic)")
             st.caption("Confidence dihitung berdasarkan konsistensi antar domain, bukan simple average")
@@ -1472,7 +1429,6 @@ def main():
                 with col_b3:
                     st.metric("Base Confidence", f"{breakdown.get('base_confidence', 0)}%")
                     st.info(f"**Final:** {integrated_result['confidence']}%\n\n*Weighted fuzzy combination*")
-            # ========================================================================
             
             st.divider()
             st.subheader("📥 Export Report")
