@@ -817,10 +817,15 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
     
     lines.append("=== MECHANICAL VIBRATION ===")
     if mech_data.get("points"):
-        lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g),Diagnosis,Confidence,Severity")
+        # Header CSV diubah: Menghapus kolom Diagnosis, Confidence, dan Severity per titik
+        lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g)")
         for point, data in mech_data["points"].items():
-            lines.append(f"{point},{data['velocity']:.2f},{data['bands']['Band1']:.3f},{data['bands']['Band2']:.3f},{data['bands']['Band3']:.3f},{data['diagnosis']},{data['confidence']},{data['severity']}")
+            # Memanggil data velocity dan bands saja
+            lines.append(f"{point},{data['velocity']:.2f},{data['bands']['Band1']:.3f},{data['bands']['Band2']:.3f},{data['bands']['Band3']:.3f}")
+        
+        # Menampilkan diagnosis sistem secara keseluruhan
         lines.append(f"System Diagnosis: {mech_data.get('system_diagnosis', 'N/A')}")
+        lines.append(f"Root Cause Point: {mech_data.get('champion_point', 'N/A')}")
         lines.append("")
     
     lines.append("=== HYDRAULIC PERFORMANCE (Single-Point) ===")
