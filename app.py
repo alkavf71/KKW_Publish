@@ -429,7 +429,18 @@ def diagnose_electrical_condition(electrical_calc, motor_specs):
 # FUNGSI DIAGNOSA - MECHANICAL DOMAIN
 # ============================================================================
 
-def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, temp_data):
+# ============================================================================
+# FUNGSI DIAGNOSA - MECHANICAL DOMAIN (UPDATED: MULTI-POINT FFT)
+# ============================================================================
+def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, temp_data, fft_multi_data=None):
+    """
+    fft_multi_data: dict dengan struktur:
+    {
+        "Pump DE Axial": [(freq, amp), (freq, amp), ...],
+        "Motor DE Axial": [(freq, amp), ...],
+        ...
+    }
+    """
     result = {
         "diagnosis": "Normal",
         "confidence": 99,
@@ -437,7 +448,8 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, tem
         "fault_type": "normal",
         "domain": "mechanical",
         "champion_point": None,
-        "temperature_notes": []
+        "temperature_notes": [],
+        "multi_point_analysis": {}  # ✅ Baru: Track analisis multi-titik
     }
     
     limit_warning = ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]
@@ -471,55 +483,101 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_champ_data, rpm_hz, tem
     max_vel = vel_data[champ_point]
     result["champion_point"] = champ_point
     
-    low_freq_diag = None
-    low_freq_severity = "Low"
-    low_freq_conf = 0
+    # --- 3. TENTUKAN TITIK STRATEGIS UNTUK FFT MULTI-POINT ---
+    strategic_points = [champ_point]  # Selalu include champion point
     
-    if max_vel > limit_warning:
-        low_freq_severity = "High" if max_vel > limit_danger else "Medium"
-        parts = champ_point.split()
-        if len(parts) >= 3:
-            machine = parts[0]
-            end = parts[1]
-            direction = parts[2]
-        else:
-            machine, end, direction = "Pump", "DE", "Horizontal"
+    parts = champ_point.split()
+    if len(parts) >= 3:
+        machine, end, direction = parts[0], parts[1], parts[2]
         
-        # Ekstrak FFT dari titik juara
-        amp_1x = next((p[1] for p in fft_champ_data if abs(p[0]-rpm_hz) < 0.05*rpm_hz), 0)
-        amp_2x = next((p[1] for p in fft_champ_data if abs(p[0]-2*rpm_hz) < 0.05*rpm_hz), 0)
-        
-        # RULE A: MISALIGNMENT
+        # Tambahkan titik seberang kopling untuk Misalignment check
         if direction == "Axial" and end == "DE":
             opp_machine = "Pump" if machine == "Motor" else "Motor"
             opp_point = f"{opp_machine} DE Axial"
-            opp_vel = vel_data.get(opp_point, 0)
-            if amp_2x > 0.5 * amp_1x or opp_vel > limit_warning:
-                low_freq_diag = "MISALIGNMENT"
-                low_freq_conf = min(95, 75 + int((opp_vel/limit_warning)*10 if limit_warning > 0 else 0))
+            if opp_point in vel_data:
+                strategic_points.append(opp_point)
         
-        # RULE B: UNBALANCE
+        # Tambahkan ujung poros satunya untuk Unbalance check
         elif direction == "Horizontal":
             opp_end = "NDE" if end == "DE" else "DE"
             opp_point = f"{machine} {opp_end} Horizontal"
-            opp_vel = vel_data.get(opp_point, 0)
-            total_fft = sum(p[1] for p in fft_champ_data) if fft_champ_data else 1
-            if amp_1x > 0.7 * total_fft or opp_vel > limit_warning:
-                low_freq_diag = "UNBALANCE"
-                low_freq_conf = min(90, 70 + int((amp_1x/max_vel)*20 if max_vel>0 else 0))
+            if opp_point in vel_data:
+                strategic_points.append(opp_point)
+    
+    # Batasi maksimal 4 titik strategis
+    strategic_points = strategic_points[:4]
+    result["multi_point_analysis"]["strategic_points"] = strategic_points
+    
+    # --- 4. ANALISIS FFT MULTI-POINT ---
+    low_freq_diag = None
+    low_freq_severity = "Low"
+    low_freq_conf = 0
+    multi_point_evidence = []
+    
+    for point in strategic_points:
+        # Gunakan FFT dari multi_data jika ada, fallback ke champ_data
+        fft_data = fft_multi_data.get(point, fft_champ_data) if fft_multi_data else fft_champ_data
         
-        # RULE C: LOOSENESS
-        elif direction == "Vertical":
+        amp_1x = next((p[1] for p in fft_data if abs(p[0]-rpm_hz) < 0.05*rpm_hz), 0)
+        amp_2x = next((p[1] for p in fft_data if abs(p[0]-2*rpm_hz) < 0.05*rpm_hz), 0)
+        total_fft = sum(p[1] for p in fft_data) if fft_data else 1
+        
+        parts = point.split()
+        if len(parts) >= 3:
+            pt_machine, pt_end, pt_direction = parts[0], parts[1], parts[2]
+        else:
+            continue
+        
+        point_vel = vel_data.get(point, 0)
+        point_evidence = {
+            "point": point,
+            "velocity": point_vel,
+            "1x": amp_1x,
+            "2x": amp_2x,
+            "1x_ratio": amp_1x/total_fft if total_fft > 0 else 0,
+            "2x_ratio": amp_2x/total_fft if total_fft > 0 else 0
+        }
+        multi_point_evidence.append(point_evidence)
+        
+        # RULE A: MISALIGNMENT (butuh konfirmasi 2 titik DE)
+        if pt_direction == "Axial" and pt_end == "DE" and amp_2x > 0.5 * amp_1x:
+            opp_machine = "Pump" if pt_machine == "Motor" else "Motor"
+            opp_point = f"{opp_machine} DE Axial"
+            opp_vel = vel_data.get(opp_point, 0)
+            
+            if opp_vel > limit_warning:
+                low_freq_diag = "MISALIGNMENT"
+                low_freq_conf = min(95, 75 + int((opp_vel/limit_warning)*10))
+                low_freq_severity = "High" if max_vel > limit_danger else "Medium"
+                point_evidence["confirmation"] = "Cross-coupling confirmed"
+                break
+        
+        # RULE B: UNBALANCE (butuh konfirmasi 2 titik Horizontal)
+        elif pt_direction == "Horizontal" and amp_1x > 0.7 * total_fft:
+            opp_end = "NDE" if pt_end == "DE" else "DE"
+            opp_point = f"{pt_machine} {opp_end} Horizontal"
+            opp_vel = vel_data.get(opp_point, 0)
+            
+            if opp_vel > limit_warning:
+                low_freq_diag = "UNBALANCE"
+                low_freq_conf = min(90, 70 + int((amp_1x/max_vel)*20))
+                low_freq_severity = "High" if max_vel > limit_danger else "Medium"
+                point_evidence["confirmation"] = "Same-machine opposite end confirmed"
+                break
+        
+        # RULE C: LOOSENESS (butuh >=2 titik Vertical tinggi)
+        elif pt_direction == "Vertical":
             high_verts = sum(1 for p, v in vel_data.items() if "Vertical" in p and v > limit_warning)
-            if high_verts >= 2 or (amp_2x > 0.1 and amp_1x > 0.1):
+            if high_verts >= 2:
                 low_freq_diag = "LOOSENESS"
                 low_freq_conf = min(90, 60 + (high_verts * 10))
-        
-        if not low_freq_diag:
-            low_freq_diag = "Tidak Terdiagnosa"
-            low_freq_conf = 40
+                low_freq_severity = "High" if max_vel > limit_danger else "Medium"
+                point_evidence["confirmation"] = f"{high_verts} vertical points high"
+                break
     
-    # --- 3. KEPUTUSAN FINAL ---
+    result["multi_point_analysis"]["evidence"] = multi_point_evidence
+    
+    # --- 5. KEPUTUSAN FINAL ---
     if low_freq_severity == "High":
         result.update({
             "diagnosis": low_freq_diag,
@@ -916,105 +974,192 @@ def main():
     ])
     
     # ========================================================================
-    # TAB 1: MECHANICAL
-    # ========================================================================
-    with tab_mech:
-        st.header("🔧 Mechanical Vibration Analysis")
-        st.caption("ISO 10816-3/7 | Centrifugal Pump + Electric Motor")
+# TAB 1: MECHANICAL (UPDATED: MULTI-POINT FFT)
+# ========================================================================
+with tab_mech:
+    st.header("🔧 Mechanical Vibration Analysis")
+    st.caption("ISO 10816-3/7 | Centrifugal Pump + Electric Motor")
+    
+    # Temperature Input (TIDAK DIUBAH)
+    st.subheader("🌡️ Bearing Temperature (4 Points)")
+    temp_cols = st.columns(4)
+    temp_data = {}
+    with temp_cols[0]:
+        pump_de_temp = st.number_input("Pump DE (°C)", min_value=0, max_value=150,
+                                      value=65, step=1, key="temp_pump_de")
+        temp_data["Pump_DE"] = pump_de_temp
+        if pump_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
+            st.error(f"🔴 {pump_de_temp}°C - Warning")
+        elif pump_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+            st.warning(f"🟡 {pump_de_temp}°C - Elevated")
+        else:
+            st.success(f"🟢 {pump_de_temp}°C - Normal")
+    
+    with temp_cols[1]:
+        pump_nde_temp = st.number_input("Pump NDE (°C)", min_value=0, max_value=150,
+                                       value=63, step=1, key="temp_pump_nde")
+        temp_data["Pump_NDE"] = pump_nde_temp
+        if pump_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
+            st.error(f"🔴 {pump_nde_temp}°C - Warning")
+        elif pump_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+            st.warning(f"🟡 {pump_nde_temp}°C - Elevated")
+        else:
+            st.success(f"🟢 {pump_nde_temp}°C - Normal")
+    
+    with temp_cols[2]:
+        motor_de_temp = st.number_input("Motor DE (°C)", min_value=0, max_value=150,
+                                       value=68, step=1, key="temp_motor_de")
+        temp_data["Motor_DE"] = motor_de_temp
+        if motor_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
+            st.error(f"🔴 {motor_de_temp}°C - Warning")
+        elif motor_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+            st.warning(f"🟡 {motor_de_temp}°C - Elevated")
+        else:
+            st.success(f"🟢 {motor_de_temp}°C - Normal")
+    
+    with temp_cols[3]:
+        motor_nde_temp = st.number_input("Motor NDE (°C)", min_value=0, max_value=150,
+                                        value=66, step=1, key="temp_motor_nde")
+        temp_data["Motor_NDE"] = motor_nde_temp
+        if motor_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
+            st.error(f"🔴 {motor_nde_temp}°C - Warning")
+        elif motor_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+            st.warning(f"🟡 {motor_nde_temp}°C - Elevated")
+        else:
+            st.success(f"🟢 {motor_nde_temp}°C - Normal")
+    
+    st.divider()
+    
+    # Vibration Input (TIDAK DIUBAH)
+    st.subheader("📊 Input Data 12 Titik Pengukuran")
+    points = [f"{machine} {end} {direction}"
+             for machine in ["Pump", "Motor"]
+             for end in ["DE", "NDE"]
+             for direction in ["Horizontal", "Vertical", "Axial"]]
+    
+    input_data = {}
+    bands_inputs = {}
+    cols = st.columns(3)
+    
+    for idx, point in enumerate(points):
+        with cols[idx % 3]:
+            with st.expander(f"📍 {point}", expanded=False):
+                overall = st.number_input("Overall Vel (mm/s)", min_value=0.0, max_value=30.0,
+                                         value=1.0, step=0.1, key=f"mech_vel_{point}")
+                input_data[point] = overall
+                
+                st.caption("Freq Bands (g) - Bearing")
+                b1 = st.number_input("Band 1", min_value=0.0, value=0.2, step=0.05, key=f"m_b1_{point}")
+                b2 = st.number_input("Band 2", min_value=0.0, value=0.15, step=0.05, key=f"m_b2_{point}")
+                b3 = st.number_input("Band 3", min_value=0.0, value=0.1, step=0.05, key=f"m_b3_{point}")
+                bands_inputs[point] = {"Band1": b1, "Band2": b2, "Band3": b3}
+                
+                if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+                    st.error(f"⚠️ {overall} mm/s (High)")
+    
+    # ✅ MULTI-POINT FFT INPUT (BARU)
+    champ_point = max(input_data, key=input_data.get)
+    champ_vel = input_data[champ_point]
+    fft_multi_data = {}
+    
+    if champ_vel > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+        # Tentukan titik strategis
+        strategic_points = [champ_point]
+        parts = champ_point.split()
+        if len(parts) >= 3:
+            machine, end, direction = parts[0], parts[1], parts[2]
+            
+            if direction == "Axial" and end == "DE":
+                opp_machine = "Pump" if machine == "Motor" else "Motor"
+                opp_point = f"{opp_machine} DE Axial"
+                if opp_point in input_data and input_data[opp_point] > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+                    strategic_points.append(opp_point)
+            
+            elif direction == "Horizontal":
+                opp_end = "NDE" if end == "DE" else "DE"
+                opp_point = f"{machine} {opp_end} Horizontal"
+                if opp_point in input_data and input_data[opp_point] > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+                    strategic_points.append(opp_point)
         
-        # Temperature Input
-        st.subheader("🌡️ Bearing Temperature (4 Points)")
-        temp_cols = st.columns(4)
-        temp_data = {}
+        strategic_points = strategic_points[:4]
         
-        with temp_cols[0]:
-            pump_de_temp = st.number_input("Pump DE (°C)", min_value=0, max_value=150,
-                                          value=65, step=1, key="temp_pump_de")
-            temp_data["Pump_DE"] = pump_de_temp
-            if pump_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
-                st.error(f"🔴 {pump_de_temp}°C - Warning")
-            elif pump_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-                st.warning(f"🟡 {pump_de_temp}°C - Elevated")
-            else:
-                st.success(f"🟢 {pump_de_temp}°C - Normal")
+        st.markdown(f"""
+        <div style="background-color:#ffeeba; padding:15px; border-radius:8px; border-left:5px solid #ffc107; margin-top:20px;">
+        <h4 style="margin:0; color:#856404;">🎯 Multi-Point FFT Analysis</h4>
+        <p style="margin:5px 0 0 0; color:#856404;">
+        Terdeteksi vibrasi tinggi. Silakan masukkan FFT untuk <b>{len(strategic_points)} titik strategis</b>:
+        {', '.join(strategic_points)}
+        </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with temp_cols[1]:
-            pump_nde_temp = st.number_input("Pump NDE (°C)", min_value=0, max_value=150,
-                                           value=63, step=1, key="temp_pump_nde")
-            temp_data["Pump_NDE"] = pump_nde_temp
-            if pump_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
-                st.error(f"🔴 {pump_nde_temp}°C - Warning")
-            elif pump_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-                st.warning(f"🟡 {pump_nde_temp}°C - Elevated")
-            else:
-                st.success(f"🟢 {pump_nde_temp}°C - Normal")
+        # Input FFT untuk setiap titik strategis
+        for idx, point in enumerate(strategic_points):
+            with st.expander(f"📈 FFT Spectrum: {point}", expanded=(idx==0)):
+                st.caption(f"1x RPM = {rpm/60:.1f} Hz")
+                fft_peaks = []
+                for i in range(1, 4):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        default_freq = (rpm/60) * i
+                        freq = st.number_input(f"Peak {i} Freq (Hz)", min_value=0.1, 
+                                             value=default_freq, key=f"fft_f_{point}_{i}")
+                    with c2:
+                        amp = st.number_input(f"Peak {i} Amp (mm/s)", min_value=0.01, 
+                                            value=1.0, step=0.1, key=f"fft_a_{point}_{i}")
+                    fft_peaks.append((freq, amp))
+                fft_multi_data[point] = fft_peaks
+    else:
+        fft_champ_peaks = [(rpm/60, 0.1), (2*rpm/60, 0.05)]
+        st.success("✅ Semua titik vibrasi dalam batas normal. Tidak perlu analisa FFT.")
+    
+    # Run Analysis (UPDATED)
+    if st.button("🔍 Jalankan Mechanical Analysis", type="primary", key="run_mech"):
+        with st.spinner("Menganalisis pola getaran multi-point..."):
+            mech_system = diagnose_mechanical_system(
+                input_data, bands_inputs, 
+                fft_multi_data.get(champ_point, []) if fft_multi_data else fft_champ_peaks,
+                rpm/60, temp_data,
+                fft_multi_data if fft_multi_data else None
+            )
+            st.session_state.mech_result = mech_system
+            st.session_state.mech_data = {
+                "points": {p: {"velocity": input_data[p], "bands": bands_inputs[p]} for p in points},
+                "system_diagnosis": mech_system["diagnosis"],
+                "champion_point": mech_system["champion_point"],
+                "strategic_points": mech_system.get("multi_point_analysis", {}).get("strategic_points", [])
+            }
+            st.session_state.temp_data = temp_data
+            st.success(f"✅ Analisis Selesai: {mech_system['diagnosis']}")
+    
+    # Display Result (UPDATED: Tampilkan Multi-Point Evidence)
+    if "mech_result" in st.session_state:
+        result = st.session_state.mech_result
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.metric("Diagnosis Utama", result["diagnosis"])
+        with col_b:
+            st.metric("Titik Sumber", result["champion_point"])
+        with col_c:
+            st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
         
-        with temp_cols[2]:
-            motor_de_temp = st.number_input("Motor DE (°C)", min_value=0, max_value=150,
-                                           value=68, step=1, key="temp_motor_de")
-            temp_data["Motor_DE"] = motor_de_temp
-            if motor_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
-                st.error(f"🔴 {motor_de_temp}°C - Warning")
-            elif motor_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-                st.warning(f"🟡 {motor_de_temp}°C - Elevated")
-            else:
-                st.success(f"🟢 {motor_de_temp}°C - Normal")
+        if result["diagnosis"] != "Normal":
+            st.info(get_mechanical_recommendation(result["diagnosis"], result["champion_point"], result["severity"]))
         
-        with temp_cols[3]:
-            motor_nde_temp = st.number_input("Motor NDE (°C)", min_value=0, max_value=150,
-                                            value=66, step=1, key="temp_motor_nde")
-            temp_data["Motor_NDE"] = motor_nde_temp
-            if motor_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
-                st.error(f"🔴 {motor_nde_temp}°C - Warning")
-            elif motor_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-                st.warning(f"🟡 {motor_nde_temp}°C - Elevated")
-            else:
-                st.success(f"🟢 {motor_nde_temp}°C - Normal")
-        
-        st.divider()
-        
-        # Vibration Input
-        st.subheader("📊 Input Data 12 Titik Pengukuran")
-        points = [f"{machine} {end} {direction}"
-                 for machine in ["Pump", "Motor"]
-                 for end in ["DE", "NDE"]
-                 for direction in ["Horizontal", "Vertical", "Axial"]]
-        
-        input_data = {}
-        bands_inputs = {}
-        cols = st.columns(3)
-        
-        for idx, point in enumerate(points):
-            with cols[idx % 3]:
-                with st.expander(f"📍 {point}", expanded=False):
-                    overall = st.number_input("Overall Vel (mm/s)", min_value=0.0, max_value=30.0,
-                                             value=1.0, step=0.1, key=f"mech_vel_{point}")
-                    input_data[point] = overall
-                    
-                    st.caption("Freq Bands (g) - Bearing")
-                    b1 = st.number_input("Band 1", min_value=0.0, value=0.2, step=0.05, key=f"m_b1_{point}")
-                    b2 = st.number_input("Band 2", min_value=0.0, value=0.15, step=0.05, key=f"m_b2_{point}")
-                    b3 = st.number_input("Band 3", min_value=0.0, value=0.1, step=0.05, key=f"m_b3_{point}")
-                    bands_inputs[point] = {"Band1": b1, "Band2": b2, "Band3": b3}
-                    
-                    if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
-                        st.error(f"⚠️ {overall} mm/s (High)")
-        
-        # Champion Point & FFT
-        champ_point = max(input_data, key=input_data.get)
-        champ_vel = input_data[champ_point]
-        fft_champ_peaks = []
-        
-        if champ_vel > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
-            st.markdown(f"""
-            <div style="background-color:#ffeeba; padding:15px; border-radius:8px; border-left:5px solid #ffc107; margin-top:20px;">
-            <h4 style="margin:0; color:#856404;">🎯 Analisa Lanjutan Diperlukan</h4>
-            <p style="margin:5px 0 0 0; color:#856404;">
-            Terdeteksi vibrasi dominan pada <b>{champ_point}</b> ({champ_vel:.1f} mm/s).<br>
-            Silakan masukkan data Spektrum FFT <b>hanya untuk titik ini</b>.
-            </p>
-            </div>
-            """, unsafe_allow_html=True)
+        # ✅ Tampilkan Multi-Point Evidence
+        if result.get("multi_point_analysis", {}).get("evidence"):
+            with st.expander("🔍 Multi-Point FFT Evidence", expanded=True):
+                st.write("**Bukti dari titik strategis:**")
+                for evidence in result["multi_point_analysis"]["evidence"]:
+                    st.markdown(f"""
+                    <div style="background-color:#f8f9fa; padding:10px; border-radius:5px; margin:5px 0;">
+                    <strong>📍 {evidence['point']}</strong><br>
+                    Velocity: {evidence['velocity']:.2f} mm/s | 
+                    1x: {evidence['1x']:.2f} mm/s ({evidence['1x_ratio']*100:.1f}%) | 
+                    2x: {evidence['2x']:.2f} mm/s ({evidence['2x_ratio']*100:.1f}%)
+                    {f"<br>✅ {evidence.get('confirmation', '')}" if evidence.get('confirmation') else ""}
+                    </div>
+                    """, unsafe_allow_html=True)
             
             with st.expander(f"📈 Input FFT Spectrum untuk: {champ_point}", expanded=True):
                 rpm_hz = rpm / 60
