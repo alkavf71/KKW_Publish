@@ -952,501 +952,501 @@ def main():
         """)
         
             st.divider()
-    st.caption("📊 Status Analisis:")
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        mech_done = "✅" if "mech_result" in st.session_state else "⏳"
-        st.write(f"{mech_done} Mechanical")
-    with col_s2:
-        hyd_done = "✅" if "hyd_result" in st.session_state else "⏳"
-        st.write(f"{hyd_done} Hydraulic")
-    col_s3, col_s4 = st.columns(2)
-    with col_s3:
-        elec_done = "✅" if "elec_result" in st.session_state else "⏳"
-        st.write(f"{elec_done} Electrical")
-    with col_s4:
-        int_done = "✅" if "integrated_result" in st.session_state else "⏳"
-        st.write(f"{int_done} Integrated")
-
-# ========================================================================
-# ✅ CREATE TABS - WAJIB DI LUAR IF/ELSE
-# ========================================================================
-tab_mech, tab_hyd, tab_elec, tab_integrated = st.tabs([
-    "🔧 Mechanical", "💧 Hydraulic", "⚡ Electrical", "🔗 Integrated Summary"
-])
-
-# ========================================================================
-# TAB 1: MECHANICAL
-# ========================================================================
-with tab_mech:
-    st.header("🔧 Mechanical Vibration Analysis")
-    st.caption("ISO 10816-3/7 | Centrifugal Pump + Electric Motor")
-    
-    # Temperature Input
-    st.subheader("🌡️ Bearing Temperature (4 Points)")
-    temp_cols = st.columns(4)
-    temp_data = {}
-    with temp_cols[0]:
-        pump_de_temp = st.number_input("Pump DE (°C)", min_value=0, max_value=150,
-                                      value=65, step=1, key="temp_pump_de")
-        temp_data["Pump_DE"] = pump_de_temp
-        if pump_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
-            st.error(f"🔴 {pump_de_temp}°C - Warning")
-        elif pump_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-            st.warning(f"🟡 {pump_de_temp}°C - Elevated")
-        else:
-            st.success(f"🟢 {pump_de_temp}°C - Normal")
-    
-    with temp_cols[1]:
-        pump_nde_temp = st.number_input("Pump NDE (°C)", min_value=0, max_value=150,
-                                       value=63, step=1, key="temp_pump_nde")
-        temp_data["Pump_NDE"] = pump_nde_temp
-        if pump_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
-            st.error(f"🔴 {pump_nde_temp}°C - Warning")
-        elif pump_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-            st.warning(f"🟡 {pump_nde_temp}°C - Elevated")
-        else:
-            st.success(f"🟢 {pump_nde_temp}°C - Normal")
-    
-    with temp_cols[2]:
-        motor_de_temp = st.number_input("Motor DE (°C)", min_value=0, max_value=150,
-                                       value=68, step=1, key="temp_motor_de")
-        temp_data["Motor_DE"] = motor_de_temp
-        if motor_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
-            st.error(f"🔴 {motor_de_temp}°C - Warning")
-        elif motor_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-            st.warning(f"🟡 {motor_de_temp}°C - Elevated")
-        else:
-            st.success(f"🟢 {motor_de_temp}°C - Normal")
-    
-    with temp_cols[3]:
-        motor_nde_temp = st.number_input("Motor NDE (°C)", min_value=0, max_value=150,
-                                        value=66, step=1, key="temp_motor_nde")
-        temp_data["Motor_NDE"] = motor_nde_temp
-        if motor_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
-            st.error(f"🔴 {motor_nde_temp}°C - Warning")
-        elif motor_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
-            st.warning(f"🟡 {motor_nde_temp}°C - Elevated")
-        else:
-            st.success(f"🟢 {motor_nde_temp}°C - Normal")
-    
-    st.divider()
-    
-    # Vibration Input
-    st.subheader("📊 Input Data 12 Titik Pengukuran")
-    points = [f"{machine} {end} {direction}"
-             for machine in ["Pump", "Motor"]
-             for end in ["DE", "NDE"]
-             for direction in ["Horizontal", "Vertical", "Axial"]]
-    
-    input_data = {}
-    bands_inputs = {}
-    cols = st.columns(3)
-    
-    for idx, point in enumerate(points):
-        with cols[idx % 3]:
-            with st.expander(f"📍 {point}", expanded=False):
-                overall = st.number_input("Overall Vel (mm/s)", min_value=0.0, max_value=30.0,
-                                         value=1.0, step=0.1, key=f"mech_vel_{point}")
-                input_data[point] = overall
+            st.caption("📊 Status Analisis:")
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                mech_done = "✅" if "mech_result" in st.session_state else "⏳"
+                st.write(f"{mech_done} Mechanical")
+            with col_s2:
+                hyd_done = "✅" if "hyd_result" in st.session_state else "⏳"
+                st.write(f"{hyd_done} Hydraulic")
+            col_s3, col_s4 = st.columns(2)
+            with col_s3:
+                elec_done = "✅" if "elec_result" in st.session_state else "⏳"
+                st.write(f"{elec_done} Electrical")
+            with col_s4:
+                int_done = "✅" if "integrated_result" in st.session_state else "⏳"
+                st.write(f"{int_done} Integrated")
+        
+        # ========================================================================
+        # ✅ CREATE TABS - WAJIB DI LUAR IF/ELSE
+        # ========================================================================
+        tab_mech, tab_hyd, tab_elec, tab_integrated = st.tabs([
+            "🔧 Mechanical", "💧 Hydraulic", "⚡ Electrical", "🔗 Integrated Summary"
+        ])
+        
+        # ========================================================================
+        # TAB 1: MECHANICAL
+        # ========================================================================
+        with tab_mech:
+            st.header("🔧 Mechanical Vibration Analysis")
+            st.caption("ISO 10816-3/7 | Centrifugal Pump + Electric Motor")
+            
+            # Temperature Input
+            st.subheader("🌡️ Bearing Temperature (4 Points)")
+            temp_cols = st.columns(4)
+            temp_data = {}
+            with temp_cols[0]:
+                pump_de_temp = st.number_input("Pump DE (°C)", min_value=0, max_value=150,
+                                              value=65, step=1, key="temp_pump_de")
+                temp_data["Pump_DE"] = pump_de_temp
+                if pump_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
+                    st.error(f"🔴 {pump_de_temp}°C - Warning")
+                elif pump_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+                    st.warning(f"🟡 {pump_de_temp}°C - Elevated")
+                else:
+                    st.success(f"🟢 {pump_de_temp}°C - Normal")
+            
+            with temp_cols[1]:
+                pump_nde_temp = st.number_input("Pump NDE (°C)", min_value=0, max_value=150,
+                                               value=63, step=1, key="temp_pump_nde")
+                temp_data["Pump_NDE"] = pump_nde_temp
+                if pump_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
+                    st.error(f"🔴 {pump_nde_temp}°C - Warning")
+                elif pump_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+                    st.warning(f"🟡 {pump_nde_temp}°C - Elevated")
+                else:
+                    st.success(f"🟢 {pump_nde_temp}°C - Normal")
+            
+            with temp_cols[2]:
+                motor_de_temp = st.number_input("Motor DE (°C)", min_value=0, max_value=150,
+                                               value=68, step=1, key="temp_motor_de")
+                temp_data["Motor_DE"] = motor_de_temp
+                if motor_de_temp > BEARING_TEMP_LIMITS["warning_min"]:
+                    st.error(f"🔴 {motor_de_temp}°C - Warning")
+                elif motor_de_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+                    st.warning(f"🟡 {motor_de_temp}°C - Elevated")
+                else:
+                    st.success(f"🟢 {motor_de_temp}°C - Normal")
+            
+            with temp_cols[3]:
+                motor_nde_temp = st.number_input("Motor NDE (°C)", min_value=0, max_value=150,
+                                                value=66, step=1, key="temp_motor_nde")
+                temp_data["Motor_NDE"] = motor_nde_temp
+                if motor_nde_temp > BEARING_TEMP_LIMITS["warning_min"]:
+                    st.error(f"🔴 {motor_nde_temp}°C - Warning")
+                elif motor_nde_temp > BEARING_TEMP_LIMITS["elevated_min"]:
+                    st.warning(f"🟡 {motor_nde_temp}°C - Elevated")
+                else:
+                    st.success(f"🟢 {motor_nde_temp}°C - Normal")
+            
+            st.divider()
+            
+            # Vibration Input
+            st.subheader("📊 Input Data 12 Titik Pengukuran")
+            points = [f"{machine} {end} {direction}"
+                     for machine in ["Pump", "Motor"]
+                     for end in ["DE", "NDE"]
+                     for direction in ["Horizontal", "Vertical", "Axial"]]
+            
+            input_data = {}
+            bands_inputs = {}
+            cols = st.columns(3)
+            
+            for idx, point in enumerate(points):
+                with cols[idx % 3]:
+                    with st.expander(f"📍 {point}", expanded=False):
+                        overall = st.number_input("Overall Vel (mm/s)", min_value=0.0, max_value=30.0,
+                                                 value=1.0, step=0.1, key=f"mech_vel_{point}")
+                        input_data[point] = overall
+                        
+                        st.caption("Freq Bands (g) - Bearing")
+                        b1 = st.number_input("Band 1", min_value=0.0, value=0.2, step=0.05, key=f"m_b1_{point}")
+                        b2 = st.number_input("Band 2", min_value=0.0, value=0.15, step=0.05, key=f"m_b2_{point}")
+                        b3 = st.number_input("Band 3", min_value=0.0, value=0.1, step=0.05, key=f"m_b3_{point}")
+                        bands_inputs[point] = {"Band1": b1, "Band2": b2, "Band3": b3}
+                        
+                        if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+                            st.error(f"⚠️ {overall} mm/s (High)")
+            
+            # Champion Point & FFT
+            champ_point = max(input_data, key=input_data.get)
+            champ_vel = input_data[champ_point]
+            fft_champ_peaks = []
+            
+            if champ_vel > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
+                st.markdown(f"""
+                <div style="background-color:#ffeeba; padding:15px; border-radius:8px; border-left:5px solid #ffc107; margin-top:20px;">
+                <h4 style="margin:0; color:#856404;">🎯 Analisa Lanjutan Diperlukan</h4>
+                <p style="margin:5px 0 0 0; color:#856404;">
+                Terdeteksi vibrasi dominan pada <b>{champ_point}</b> ({champ_vel:.1f} mm/s).<br>
+                Silakan masukkan data Spektrum FFT <b>hanya untuk titik ini</b>.
+                </p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                st.caption("Freq Bands (g) - Bearing")
-                b1 = st.number_input("Band 1", min_value=0.0, value=0.2, step=0.05, key=f"m_b1_{point}")
-                b2 = st.number_input("Band 2", min_value=0.0, value=0.15, step=0.05, key=f"m_b2_{point}")
-                b3 = st.number_input("Band 3", min_value=0.0, value=0.1, step=0.05, key=f"m_b3_{point}")
-                bands_inputs[point] = {"Band1": b1, "Band2": b2, "Band3": b3}
+                with st.expander(f"📈 Input FFT Spectrum untuk: {champ_point}", expanded=True):
+                    rpm_hz = rpm / 60
+                    for i in range(1, 4):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            default_freq = rpm_hz * i
+                            freq = st.number_input(f"Peak {i} Freq (Hz)", min_value=0.1, value=default_freq, key=f"fft_f_{i}")
+                        with c2:
+                            amp = st.number_input(f"Peak {i} Amp (mm/s)", min_value=0.01, value=1.0, step=0.1, key=f"fft_a_{i}")
+                        fft_champ_peaks.append((freq, amp))
+            else:
+                rpm_hz = rpm / 60
+                fft_champ_peaks = [(rpm_hz, 0.1), (2*rpm_hz, 0.05)]
+                st.success("✅ Semua titik vibrasi dalam batas normal.")
+            
+            # Run Analysis
+            if st.button("🔍 Jalankan Mechanical Analysis", type="primary", key="run_mech"):
+                with st.spinner("Menganalisis pola getaran..."):
+                    mech_system = diagnose_mechanical_system(
+                        input_data, bands_inputs, fft_champ_peaks, rpm/60, temp_data
+                    )
+                    st.session_state.mech_result = mech_system
+                    st.session_state.mech_data = {
+                        "points": {p: {"velocity": input_data[p], "bands": bands_inputs[p]} for p in points},
+                        "system_diagnosis": mech_system["diagnosis"],
+                        "champion_point": mech_system["champion_point"]
+                    }
+                    st.session_state.temp_data = temp_data
+                    st.success(f"✅ Analisis Selesai: {mech_system['diagnosis']}")
+            
+            # Display Result
+            if "mech_result" in st.session_state:
+                result = st.session_state.mech_result
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    st.metric("Diagnosis Utama", result["diagnosis"])
+                with col_b:
+                    st.metric("Titik Sumber", result["champion_point"])
+                with col_c:
+                    st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
                 
-                if overall > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
-                    st.error(f"⚠️ {overall} mm/s (High)")
-    
-    # Champion Point & FFT
-    champ_point = max(input_data, key=input_data.get)
-    champ_vel = input_data[champ_point]
-    fft_champ_peaks = []
-    
-    if champ_vel > ISO_LIMITS_VELOCITY["Zone B (Acceptable)"]:
-        st.markdown(f"""
-        <div style="background-color:#ffeeba; padding:15px; border-radius:8px; border-left:5px solid #ffc107; margin-top:20px;">
-        <h4 style="margin:0; color:#856404;">🎯 Analisa Lanjutan Diperlukan</h4>
-        <p style="margin:5px 0 0 0; color:#856404;">
-        Terdeteksi vibrasi dominan pada <b>{champ_point}</b> ({champ_vel:.1f} mm/s).<br>
-        Silakan masukkan data Spektrum FFT <b>hanya untuk titik ini</b>.
-        </p>
-        </div>
-        """, unsafe_allow_html=True)
+                if result["diagnosis"] != "Normal":
+                    st.info(get_mechanical_recommendation(result["diagnosis"], result["champion_point"], result["severity"]))
         
-        with st.expander(f"📈 Input FFT Spectrum untuk: {champ_point}", expanded=True):
-            rpm_hz = rpm / 60
-            for i in range(1, 4):
-                c1, c2 = st.columns(2)
-                with c1:
-                    default_freq = rpm_hz * i
-                    freq = st.number_input(f"Peak {i} Freq (Hz)", min_value=0.1, value=default_freq, key=f"fft_f_{i}")
-                with c2:
-                    amp = st.number_input(f"Peak {i} Amp (mm/s)", min_value=0.01, value=1.0, step=0.1, key=f"fft_a_{i}")
-                fft_champ_peaks.append((freq, amp))
-    else:
-        rpm_hz = rpm / 60
-        fft_champ_peaks = [(rpm_hz, 0.1), (2*rpm_hz, 0.05)]
-        st.success("✅ Semua titik vibrasi dalam batas normal.")
-    
-    # Run Analysis
-    if st.button("🔍 Jalankan Mechanical Analysis", type="primary", key="run_mech"):
-        with st.spinner("Menganalisis pola getaran..."):
-            mech_system = diagnose_mechanical_system(
-                input_data, bands_inputs, fft_champ_peaks, rpm/60, temp_data
-            )
-            st.session_state.mech_result = mech_system
-            st.session_state.mech_data = {
-                "points": {p: {"velocity": input_data[p], "bands": bands_inputs[p]} for p in points},
-                "system_diagnosis": mech_system["diagnosis"],
-                "champion_point": mech_system["champion_point"]
-            }
-            st.session_state.temp_data = temp_data
-            st.success(f"✅ Analisis Selesai: {mech_system['diagnosis']}")
-    
-    # Display Result
-    if "mech_result" in st.session_state:
-        result = st.session_state.mech_result
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.metric("Diagnosis Utama", result["diagnosis"])
-        with col_b:
-            st.metric("Titik Sumber", result["champion_point"])
-        with col_c:
-            st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
+        # ========================================================================
+        # TAB 2: HYDRAULIC
+        # ========================================================================
+        with tab_hyd:
+            st.header("💧 Hydraulic Troubleshooting")
+            st.caption("Single-Point Steady-State Measurement")
+            
+            def estimate_bep_efficiency(Q, H, P_motor, SG, motor_eff=0.90):
+                P_hyd_design = (Q * H * SG * 9.81) / 3600
+                P_shaft_est = P_motor * motor_eff
+                if P_shaft_est > 0 and P_hyd_design > 0:
+                    eff = (P_hyd_design / P_shaft_est) * 100
+                    return min(90, max(50, eff))
+                return 75
+            
+            def estimate_npshr_conservative(Q_m3h):
+                if Q_m3h < 50:
+                    return 3.0
+                elif Q_m3h < 200:
+                    return 4.0
+                else:
+                    return 5.5
+            
+            # Input Data
+            st.subheader("📊 Data Primer Hidrolik")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                suction_pressure = st.number_input("Suction Pressure [bar]", min_value=-1.0,
+                                                  value=0.44, step=0.01, key="suction_p")
+                discharge_pressure = st.number_input("Discharge Pressure [bar]", min_value=0.0,
+                                                    value=3.73, step=0.01, key="discharge_p")
+                delta_p = discharge_pressure - suction_pressure
+                st.metric("ΔP", f"{delta_p:.2f} bar")
+            
+            with col2:
+                flow_rate = st.number_input("Flow Rate [m³/h]", min_value=0.0, value=100.0,
+                                           step=1.0, key="flow_rate")
+                motor_power = st.number_input("Motor Power [kW]", min_value=0.0,
+                                             value=15.0, step=0.5, key="motor_power")
+            
+            with col3:
+                fluid_props = FLUID_PROPERTIES[fluid_type]
+                sg = st.number_input("Specific Gravity", min_value=0.5, max_value=1.5,
+                                    value=fluid_props["sg"], step=0.01, key="sg_input")
+            
+            # Design Data
+            with st.expander("📋 Data Nameplate", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    rated_flow = st.number_input("Rated Flow Q [m³/h]", min_value=0.0,
+                                                value=100.0, step=1.0, key="rated_flow")
+                    rated_head = st.number_input("Rated Head H [m]", min_value=0.0,
+                                                value=59.73, step=0.1, key="rated_head")
+                with col2:
+                    bep_efficiency = st.number_input("BEP Efficiency [%] (Optional)",
+                                                    min_value=0, max_value=100, value=0, step=1,
+                                                    key="bep_eff")
+                    npsh_required = st.number_input("NPSH Required [m] (Optional)",
+                                                   min_value=0.0, value=0.0, step=0.1,
+                                                   key="npshr")
+                
+                # Auto-Estimation
+                estimation_notes = []
+                if bep_efficiency <= 0:
+                    bep_efficiency = estimate_bep_efficiency(rated_flow, rated_head, motor_power, sg)
+                    estimation_notes.append(f"BEP diestimasi: {bep_efficiency:.1f}%")
+                if npsh_required <= 0:
+                    npsh_required = estimate_npshr_conservative(rated_flow)
+                    estimation_notes.append(f"NPSHr diestimasi: {npsh_required:.1f}m")
+                if estimation_notes:
+                    st.info("🔧 **Auto-Estimation:** " + " | ".join(estimation_notes))
+            
+            # Observations
+            with st.expander("🔍 Observasi Lapangan (Optional)", expanded=False):
+                noise_type = st.radio("Jenis Noise", ["Normal", "Whining", "Grinding", "Crackling"],
+                                     index=0, key="noise_type")
+                fluid_condition = st.radio("Kondisi Fluida", ["Jernih", "Agak keruh", "Keruh"],
+                                          index=0, key="fluid_cond")
+            
+            # Run Analysis
+            analyze_hyd_disabled = suction_pressure >= discharge_pressure
+            if st.button("💧 Generate Diagnosis", type="primary", key="run_hyd",
+                        disabled=analyze_hyd_disabled):
+                with st.spinner("Menganalisis performa hidrolik..."):
+                    hyd_calc = calculate_hydraulic_parameters(
+                        suction_pressure, discharge_pressure, flow_rate,
+                        motor_power, sg
+                    )
+                    design_params = {
+                        "rated_flow_m3h": rated_flow,
+                        "rated_head_m": rated_head,
+                        "bep_efficiency": bep_efficiency,
+                        "npsh_required_m": npsh_required
+                    }
+                    observations = {
+                        "noise_type": noise_type,
+                        "fluid_condition": fluid_condition
+                    }
+                    context = {
+                        "flow_aktual": flow_rate,
+                        "suction_pressure_bar": suction_pressure
+                    }
+                    hyd_result = diagnose_hydraulic_single_point(
+                        hyd_calc, design_params, fluid_props, observations, context
+                    )
+                    st.session_state.hyd_result = hyd_result
+                    st.session_state.hyd_data = {
+                        "measurements": {
+                            "suction_pressure": suction_pressure,
+                            "discharge_pressure": discharge_pressure,
+                            "flow_rate": flow_rate,
+                            "motor_power": motor_power
+                        },
+                        "fluid_type": fluid_type,
+                        "sg": sg,
+                        "head_m": hyd_calc["head_m"],
+                        "efficiency_percent": hyd_calc["efficiency_percent"],
+                        "npsh_margin_m": hyd_result["details"].get("npsh_margin_m", 0),
+                        "diagnosis": hyd_result["diagnosis"],
+                        "confidence": hyd_result["confidence"],
+                        "severity": hyd_result["severity"],
+                        "estimation_note": " | ".join(estimation_notes) if estimation_notes else "Data OEM lengkap"
+                    }
+                    st.success(f"✅ {hyd_result['diagnosis']} ({hyd_result['confidence']}%)")
+            
+            # Display Result
+            if "hyd_result" in st.session_state:
+                result = st.session_state.hyd_result
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    st.metric("Diagnosis", result["diagnosis"])
+                with col_b:
+                    st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
+                with col_c:
+                    st.metric("Domain", "Hydraulic")
+                
+                if result["diagnosis"] != "NORMAL_OPERATION":
+                    st.info(get_hydraulic_recommendation(result["diagnosis"], fluid_type, result["severity"]))
         
-        if result["diagnosis"] != "Normal":
-            st.info(get_mechanical_recommendation(result["diagnosis"], result["champion_point"], result["severity"]))
-
-# ========================================================================
-# TAB 2: HYDRAULIC
-# ========================================================================
-with tab_hyd:
-    st.header("💧 Hydraulic Troubleshooting")
-    st.caption("Single-Point Steady-State Measurement")
-    
-    def estimate_bep_efficiency(Q, H, P_motor, SG, motor_eff=0.90):
-        P_hyd_design = (Q * H * SG * 9.81) / 3600
-        P_shaft_est = P_motor * motor_eff
-        if P_shaft_est > 0 and P_hyd_design > 0:
-            eff = (P_hyd_design / P_shaft_est) * 100
-            return min(90, max(50, eff))
-        return 75
-    
-    def estimate_npshr_conservative(Q_m3h):
-        if Q_m3h < 50:
-            return 3.0
-        elif Q_m3h < 200:
-            return 4.0
-        else:
-            return 5.5
-    
-    # Input Data
-    st.subheader("📊 Data Primer Hidrolik")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        suction_pressure = st.number_input("Suction Pressure [bar]", min_value=-1.0,
-                                          value=0.44, step=0.01, key="suction_p")
-        discharge_pressure = st.number_input("Discharge Pressure [bar]", min_value=0.0,
-                                            value=3.73, step=0.01, key="discharge_p")
-        delta_p = discharge_pressure - suction_pressure
-        st.metric("ΔP", f"{delta_p:.2f} bar")
-    
-    with col2:
-        flow_rate = st.number_input("Flow Rate [m³/h]", min_value=0.0, value=100.0,
-                                   step=1.0, key="flow_rate")
-        motor_power = st.number_input("Motor Power [kW]", min_value=0.0,
-                                     value=15.0, step=0.5, key="motor_power")
-    
-    with col3:
-        fluid_props = FLUID_PROPERTIES[fluid_type]
-        sg = st.number_input("Specific Gravity", min_value=0.5, max_value=1.5,
-                            value=fluid_props["sg"], step=0.01, key="sg_input")
-    
-    # Design Data
-    with st.expander("📋 Data Nameplate", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            rated_flow = st.number_input("Rated Flow Q [m³/h]", min_value=0.0,
-                                        value=100.0, step=1.0, key="rated_flow")
-            rated_head = st.number_input("Rated Head H [m]", min_value=0.0,
-                                        value=59.73, step=0.1, key="rated_head")
-        with col2:
-            bep_efficiency = st.number_input("BEP Efficiency [%] (Optional)",
-                                            min_value=0, max_value=100, value=0, step=1,
-                                            key="bep_eff")
-            npsh_required = st.number_input("NPSH Required [m] (Optional)",
-                                           min_value=0.0, value=0.0, step=0.1,
-                                           key="npshr")
+        # ========================================================================
+        # TAB 3: ELECTRICAL
+        # ========================================================================
+        with tab_elec:
+            st.header("⚡ Electrical Condition Analysis")
+            st.caption("3-Phase Voltage/Current | Unbalance Detection")
+            
+            with st.expander("⚙️ Motor Nameplate", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    rated_voltage = st.number_input("Rated Voltage (V)", min_value=200, max_value=690,
+                                                   value=400, step=10, key="rated_v")
+                with col2:
+                    fla = st.number_input("Full Load Amps - FLA (A)", min_value=10, max_value=500,
+                                         value=85, step=5, key="rated_i")
+            
+            st.subheader("📊 Pengukuran 3-Phase")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.caption("Voltage (Line-to-Line)")
+                v_l1l2 = st.number_input("L1-L2 (V)", min_value=0.0, value=400.0, step=1.0, key="v_l1l2")
+                v_l2l3 = st.number_input("L2-L3 (V)", min_value=0.0, value=402.0, step=1.0, key="v_l2l3")
+                v_l3l1 = st.number_input("L3-L1 (V)", min_value=0.0, value=398.0, step=1.0, key="v_l3l1")
+            
+            with col2:
+                st.caption("Current (Per Phase)")
+                i_l1 = st.number_input("L1 (A)", min_value=0.0, value=82.0, step=0.5, key="i_l1")
+                i_l2 = st.number_input("L2 (A)", min_value=0.0, value=84.0, step=0.5, key="i_l2")
+                i_l3 = st.number_input("L3 (A)", min_value=0.0, value=83.0, step=0.5, key="i_l3")
+            
+            # Run Analysis
+            if st.button("⚡ Generate Electrical Diagnosis", type="primary", key="run_elec"):
+                with st.spinner("Menganalisis kondisi electrical..."):
+                    elec_calc = calculate_electrical_parameters(
+                        v_l1l2, v_l2l3, v_l3l1, i_l1, i_l2, i_l3,
+                        rated_voltage, fla
+                    )
+                    motor_specs = {
+                        "rated_voltage": rated_voltage,
+                        "fla": fla
+                    }
+                    elec_result = diagnose_electrical_condition(elec_calc, motor_specs)
+                    st.session_state.elec_result = elec_result
+                    st.session_state.elec_data = {
+                        "measurements": {
+                            "v_l1l2": v_l1l2, "v_l2l3": v_l2l3, "v_l3l1": v_l3l1,
+                            "i_l1": i_l1, "i_l2": i_l2, "i_l3": i_l3
+                        },
+                        "voltage_unbalance": elec_calc["voltage_unbalance_percent"],
+                        "current_unbalance": elec_calc["current_unbalance_percent"],
+                        "load_estimate": elec_calc["load_estimate_percent"],
+                        "diagnosis": elec_result["diagnosis"],
+                        "confidence": elec_result["confidence"],
+                        "severity": elec_result["severity"]
+                    }
+                    st.success(f"✅ {elec_result['diagnosis']} ({elec_result['confidence']}%)")
+            
+            # Display Result
+            if "elec_result" in st.session_state:
+                result = st.session_state.elec_result
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    st.metric("Diagnosis", result["diagnosis"])
+                with col_b:
+                    st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
+                with col_c:
+                    st.metric("Domain", "Electrical")
+                
+                if result["diagnosis"] != "NORMAL_ELECTRICAL":
+                    st.info(get_electrical_recommendation(result["diagnosis"], result["severity"]))
         
-        # Auto-Estimation
-        estimation_notes = []
-        if bep_efficiency <= 0:
-            bep_efficiency = estimate_bep_efficiency(rated_flow, rated_head, motor_power, sg)
-            estimation_notes.append(f"BEP diestimasi: {bep_efficiency:.1f}%")
-        if npsh_required <= 0:
-            npsh_required = estimate_npshr_conservative(rated_flow)
-            estimation_notes.append(f"NPSHr diestimasi: {npsh_required:.1f}m")
-        if estimation_notes:
-            st.info("🔧 **Auto-Estimation:** " + " | ".join(estimation_notes))
-    
-    # Observations
-    with st.expander("🔍 Observasi Lapangan (Optional)", expanded=False):
-        noise_type = st.radio("Jenis Noise", ["Normal", "Whining", "Grinding", "Crackling"],
-                             index=0, key="noise_type")
-        fluid_condition = st.radio("Kondisi Fluida", ["Jernih", "Agak keruh", "Keruh"],
-                                  index=0, key="fluid_cond")
-    
-    # Run Analysis
-    analyze_hyd_disabled = suction_pressure >= discharge_pressure
-    if st.button("💧 Generate Diagnosis", type="primary", key="run_hyd",
-                disabled=analyze_hyd_disabled):
-        with st.spinner("Menganalisis performa hidrolik..."):
-            hyd_calc = calculate_hydraulic_parameters(
-                suction_pressure, discharge_pressure, flow_rate,
-                motor_power, sg
-            )
-            design_params = {
-                "rated_flow_m3h": rated_flow,
-                "rated_head_m": rated_head,
-                "bep_efficiency": bep_efficiency,
-                "npsh_required_m": npsh_required
-            }
-            observations = {
-                "noise_type": noise_type,
-                "fluid_condition": fluid_condition
-            }
-            context = {
-                "flow_aktual": flow_rate,
-                "suction_pressure_bar": suction_pressure
-            }
-            hyd_result = diagnose_hydraulic_single_point(
-                hyd_calc, design_params, fluid_props, observations, context
-            )
-            st.session_state.hyd_result = hyd_result
-            st.session_state.hyd_data = {
-                "measurements": {
-                    "suction_pressure": suction_pressure,
-                    "discharge_pressure": discharge_pressure,
-                    "flow_rate": flow_rate,
-                    "motor_power": motor_power
-                },
-                "fluid_type": fluid_type,
-                "sg": sg,
-                "head_m": hyd_calc["head_m"],
-                "efficiency_percent": hyd_calc["efficiency_percent"],
-                "npsh_margin_m": hyd_result["details"].get("npsh_margin_m", 0),
-                "diagnosis": hyd_result["diagnosis"],
-                "confidence": hyd_result["confidence"],
-                "severity": hyd_result["severity"],
-                "estimation_note": " | ".join(estimation_notes) if estimation_notes else "Data OEM lengkap"
-            }
-            st.success(f"✅ {hyd_result['diagnosis']} ({hyd_result['confidence']}%)")
-    
-    # Display Result
-    if "hyd_result" in st.session_state:
-        result = st.session_state.hyd_result
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.metric("Diagnosis", result["diagnosis"])
-        with col_b:
-            st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
-        with col_c:
-            st.metric("Domain", "Hydraulic")
+        # ========================================================================
+        # TAB 4: INTEGRATED
+        # ========================================================================
+        with tab_integrated:
+            st.header("🔗 Integrated Diagnostic Summary")
+            st.caption("Cross-Domain Correlation | Temperature Analysis")
+            
+            analyses_complete = all([
+                "mech_result" in st.session_state,
+                "hyd_result" in st.session_state,
+                "elec_result" in st.session_state
+            ])
+            
+            if not analyses_complete:
+                st.info("""
+                💡 **Langkah Selanjutnya:**
+                1. Jalankan analisis di tab **🔧 Mechanical**
+                2. Jalankan analisis di tab **💧 Hydraulic**
+                3. Jalankan analisis di tab **⚡ Electrical**
+                4. Kembali ke tab ini untuk integrated diagnosis
+                """)
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    status_mech = "✅" if "mech_result" in st.session_state else "⏳"
+                    st.metric("Mechanical", status_mech)
+                with col2:
+                    status_hyd = "✅" if "hyd_result" in st.session_state else "⏳"
+                    st.metric("Hydraulic", status_hyd)
+                with col3:
+                    status_elec = "✅" if "elec_result" in st.session_state else "⏳"
+                    st.metric("Electrical", status_elec)
+            else:
+                with st.spinner("Mengintegrasikan hasil tiga domain..."):
+                    temp_data = st.session_state.get("temp_data", None)
+                    integrated_result = aggregate_cross_domain_diagnosis(
+                        st.session_state.mech_result,
+                        st.session_state.hyd_result,
+                        st.session_state.elec_result,
+                        st.session_state.shared_context,
+                        temp_data
+                    )
+                    st.session_state.integrated_result = integrated_result
+                
+                # Overall Assessment
+                st.subheader("📊 Overall Assessment")
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    <div style="background-color:#f0f2f6; padding:15px; border-radius:8px; border-left:5px solid #1E3A5F">
+                    <h4 style="margin:0 0 10px 0; color:#1E3A5F">🔗 Integrated Diagnosis</h4>
+                    <p style="margin:0; font-size:1.1em; font-weight:600; color:#2c3e50;">
+                    {integrated_result["diagnosis"]}
+                    </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    severity_config = {
+                        "Low": ("🟢", "#27ae60"),
+                        "Medium": ("🟠", "#f39c12"),
+                        "High": ("🔴", "#c0392b")
+                    }
+                    sev_icon, sev_color = severity_config.get(integrated_result["severity"], ("⚪", "#95a5a6"))
+                    st.markdown(f"""
+                    <div style="background-color:#f0f2f6; padding:15px; border-radius:8px; border-left:5px solid {sev_color}">
+                    <h4 style="margin:0 0 10px 0; color:#1E3A5F">⚠️ Overall Severity</h4>
+                    <p style="margin:0; font-size:1.5em; font-weight:700; color:{sev_color};">
+                    {sev_icon} {integrated_result["severity"]}
+                    </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Metrics
+                col3, col4, col5 = st.columns(3)
+                with col3:
+                    st.metric("Confidence", f"{integrated_result['confidence']}%")
+                with col4:
+                    correlation_text = "Detected" if integrated_result['correlation_notes'] and integrated_result['correlation_notes'][0] != "Tidak ada korelasi kuat antar domain terdeteksi" else "None"
+                    st.metric("Cross-Domain Correlation", correlation_text)
+                with col5:
+                    temp_status = "Available" if temp_data else "N/A"
+                    st.metric("Temperature Data", temp_status)
+                
+                # Export Report
+                st.divider()
+                st.subheader("📥 Export Report")
+                
+                if st.button("📊 Generate Unified CSV Report", type="primary"):
+                    csv_report = generate_unified_csv_report(
+                        machine_id,
+                        rpm,
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        st.session_state.get("mech_data", {}),
+                        st.session_state.get("hyd_data", {}),
+                        st.session_state.get("elec_data", {}),
+                        integrated_result,
+                        temp_data
+                    )
+                    st.download_button(
+                        label="📥 Download CSV Report",
+                        data=csv_report,
+                        file_name=f"PUMP_DIAG_{machine_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    st.success("✅ Report generated successfully!")
+                
+                # Footer
+                st.divider()
+                st.caption("""
+                **Standar Acuan**: ISO 10816-3/7 | ISO 13373-1 | API 610 | IEC 60034 | API 670
+                **Algoritma**: Hybrid rule-based dengan cross-domain correlation + confidence scoring
+                ⚠️ Decision Support System - Verifikasi oleh personnel kompeten untuk keputusan kritis
+                🏭 Pertamina Patra Niaga - Asset Integrity Management
+                """)
         
-        if result["diagnosis"] != "NORMAL_OPERATION":
-            st.info(get_hydraulic_recommendation(result["diagnosis"], fluid_type, result["severity"]))
-
-# ========================================================================
-# TAB 3: ELECTRICAL
-# ========================================================================
-with tab_elec:
-    st.header("⚡ Electrical Condition Analysis")
-    st.caption("3-Phase Voltage/Current | Unbalance Detection")
-    
-    with st.expander("⚙️ Motor Nameplate", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            rated_voltage = st.number_input("Rated Voltage (V)", min_value=200, max_value=690,
-                                           value=400, step=10, key="rated_v")
-        with col2:
-            fla = st.number_input("Full Load Amps - FLA (A)", min_value=10, max_value=500,
-                                 value=85, step=5, key="rated_i")
-    
-    st.subheader("📊 Pengukuran 3-Phase")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.caption("Voltage (Line-to-Line)")
-        v_l1l2 = st.number_input("L1-L2 (V)", min_value=0.0, value=400.0, step=1.0, key="v_l1l2")
-        v_l2l3 = st.number_input("L2-L3 (V)", min_value=0.0, value=402.0, step=1.0, key="v_l2l3")
-        v_l3l1 = st.number_input("L3-L1 (V)", min_value=0.0, value=398.0, step=1.0, key="v_l3l1")
-    
-    with col2:
-        st.caption("Current (Per Phase)")
-        i_l1 = st.number_input("L1 (A)", min_value=0.0, value=82.0, step=0.5, key="i_l1")
-        i_l2 = st.number_input("L2 (A)", min_value=0.0, value=84.0, step=0.5, key="i_l2")
-        i_l3 = st.number_input("L3 (A)", min_value=0.0, value=83.0, step=0.5, key="i_l3")
-    
-    # Run Analysis
-    if st.button("⚡ Generate Electrical Diagnosis", type="primary", key="run_elec"):
-        with st.spinner("Menganalisis kondisi electrical..."):
-            elec_calc = calculate_electrical_parameters(
-                v_l1l2, v_l2l3, v_l3l1, i_l1, i_l2, i_l3,
-                rated_voltage, fla
-            )
-            motor_specs = {
-                "rated_voltage": rated_voltage,
-                "fla": fla
-            }
-            elec_result = diagnose_electrical_condition(elec_calc, motor_specs)
-            st.session_state.elec_result = elec_result
-            st.session_state.elec_data = {
-                "measurements": {
-                    "v_l1l2": v_l1l2, "v_l2l3": v_l2l3, "v_l3l1": v_l3l1,
-                    "i_l1": i_l1, "i_l2": i_l2, "i_l3": i_l3
-                },
-                "voltage_unbalance": elec_calc["voltage_unbalance_percent"],
-                "current_unbalance": elec_calc["current_unbalance_percent"],
-                "load_estimate": elec_calc["load_estimate_percent"],
-                "diagnosis": elec_result["diagnosis"],
-                "confidence": elec_result["confidence"],
-                "severity": elec_result["severity"]
-            }
-            st.success(f"✅ {elec_result['diagnosis']} ({elec_result['confidence']}%)")
-    
-    # Display Result
-    if "elec_result" in st.session_state:
-        result = st.session_state.elec_result
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.metric("Diagnosis", result["diagnosis"])
-        with col_b:
-            st.metric("Severity", {"Low":"🟢","Medium":"🟠","High":"🔴"}.get(result["severity"],"⚪"))
-        with col_c:
-            st.metric("Domain", "Electrical")
-        
-        if result["diagnosis"] != "NORMAL_ELECTRICAL":
-            st.info(get_electrical_recommendation(result["diagnosis"], result["severity"]))
-
-# ========================================================================
-# TAB 4: INTEGRATED
-# ========================================================================
-with tab_integrated:
-    st.header("🔗 Integrated Diagnostic Summary")
-    st.caption("Cross-Domain Correlation | Temperature Analysis")
-    
-    analyses_complete = all([
-        "mech_result" in st.session_state,
-        "hyd_result" in st.session_state,
-        "elec_result" in st.session_state
-    ])
-    
-    if not analyses_complete:
-        st.info("""
-        💡 **Langkah Selanjutnya:**
-        1. Jalankan analisis di tab **🔧 Mechanical**
-        2. Jalankan analisis di tab **💧 Hydraulic**
-        3. Jalankan analisis di tab **⚡ Electrical**
-        4. Kembali ke tab ini untuk integrated diagnosis
-        """)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            status_mech = "✅" if "mech_result" in st.session_state else "⏳"
-            st.metric("Mechanical", status_mech)
-        with col2:
-            status_hyd = "✅" if "hyd_result" in st.session_state else "⏳"
-            st.metric("Hydraulic", status_hyd)
-        with col3:
-            status_elec = "✅" if "elec_result" in st.session_state else "⏳"
-            st.metric("Electrical", status_elec)
-    else:
-        with st.spinner("Mengintegrasikan hasil tiga domain..."):
-            temp_data = st.session_state.get("temp_data", None)
-            integrated_result = aggregate_cross_domain_diagnosis(
-                st.session_state.mech_result,
-                st.session_state.hyd_result,
-                st.session_state.elec_result,
-                st.session_state.shared_context,
-                temp_data
-            )
-            st.session_state.integrated_result = integrated_result
-        
-        # Overall Assessment
-        st.subheader("📊 Overall Assessment")
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.markdown(f"""
-            <div style="background-color:#f0f2f6; padding:15px; border-radius:8px; border-left:5px solid #1E3A5F">
-            <h4 style="margin:0 0 10px 0; color:#1E3A5F">🔗 Integrated Diagnosis</h4>
-            <p style="margin:0; font-size:1.1em; font-weight:600; color:#2c3e50;">
-            {integrated_result["diagnosis"]}
-            </p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            severity_config = {
-                "Low": ("🟢", "#27ae60"),
-                "Medium": ("🟠", "#f39c12"),
-                "High": ("🔴", "#c0392b")
-            }
-            sev_icon, sev_color = severity_config.get(integrated_result["severity"], ("⚪", "#95a5a6"))
-            st.markdown(f"""
-            <div style="background-color:#f0f2f6; padding:15px; border-radius:8px; border-left:5px solid {sev_color}">
-            <h4 style="margin:0 0 10px 0; color:#1E3A5F">⚠️ Overall Severity</h4>
-            <p style="margin:0; font-size:1.5em; font-weight:700; color:{sev_color};">
-            {sev_icon} {integrated_result["severity"]}
-            </p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Metrics
-        col3, col4, col5 = st.columns(3)
-        with col3:
-            st.metric("Confidence", f"{integrated_result['confidence']}%")
-        with col4:
-            correlation_text = "Detected" if integrated_result['correlation_notes'] and integrated_result['correlation_notes'][0] != "Tidak ada korelasi kuat antar domain terdeteksi" else "None"
-            st.metric("Cross-Domain Correlation", correlation_text)
-        with col5:
-            temp_status = "Available" if temp_data else "N/A"
-            st.metric("Temperature Data", temp_status)
-        
-        # Export Report
-        st.divider()
-        st.subheader("📥 Export Report")
-        
-        if st.button("📊 Generate Unified CSV Report", type="primary"):
-            csv_report = generate_unified_csv_report(
-                machine_id,
-                rpm,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                st.session_state.get("mech_data", {}),
-                st.session_state.get("hyd_data", {}),
-                st.session_state.get("elec_data", {}),
-                integrated_result,
-                temp_data
-            )
-            st.download_button(
-                label="📥 Download CSV Report",
-                data=csv_report,
-                file_name=f"PUMP_DIAG_{machine_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success("✅ Report generated successfully!")
-        
-        # Footer
-        st.divider()
-        st.caption("""
-        **Standar Acuan**: ISO 10816-3/7 | ISO 13373-1 | API 610 | IEC 60034 | API 670
-        **Algoritma**: Hybrid rule-based dengan cross-domain correlation + confidence scoring
-        ⚠️ Decision Support System - Verifikasi oleh personnel kompeten untuk keputusan kritis
-        🏭 Pertamina Patra Niaga - Asset Integrity Management
-        """)
-
-if __name__ == "__main__":
-    main()
+        if __name__ == "__main__":
+            main()
