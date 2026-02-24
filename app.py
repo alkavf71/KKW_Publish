@@ -537,8 +537,13 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
 # ============================================================================
 # FUNGSI DIAGNOSA - HYDRAULIC DOMAIN
 # ============================================================================
-def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
-                                    observations, context):
+# ============================================================================
+# FUNGSI DIAGNOSA - HYDRAULIC DOMAIN (REVISI - TANPA OBSERVASI)
+# ============================================================================
+def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, context):
+    """
+    Diagnosa hydraulic murni berdasarkan parameter fisika (tanpa observasi subjektif)
+    """
     result = {
         "diagnosis": "NORMAL_OPERATION",
         "confidence": 95,
@@ -560,6 +565,7 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
     )
     result["details"]["deviations"] = deviations
     
+    # === NPSH CALCULATION (Objective Physics-Based) ===
     suction_pressure_bar = context.get("suction_pressure_bar", 0)
     vapor_pressure_kpa = fluid_props.get("vapor_pressure_kpa_38C", 0)
     sg = fluid_props.get("sg", 0.84)
@@ -569,17 +575,16 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props,
     npsh_margin = npsha_estimated - npshr
     result["details"]["npsh_margin_m"] = npsh_margin
     
-    noise_type = observations.get("noise_type", "Normal")
-    fluid_condition = observations.get("fluid_condition", "Jernih")
-    
-    if noise_type == "Crackling" and npsh_margin < 0.5:
+    # === CAVITATION DETECTION (NPSH-Based, NOT Noise-Based) ===
+    if npsh_margin < 0.5:
         result["diagnosis"] = "CAVITATION"
         result["confidence"] = min(90, 70 + int((0.5 - npsh_margin) * 20) if npsh_margin < 0.5 else 70)
         result["severity"] = "High" if npsh_margin < 0.3 else "Medium"
         result["fault_type"] = "cavitation"
         return result
     
-    if pattern == "UNDER_PERFORMANCE" and noise_type == "Normal":
+    # === OTHER HYDRAULIC FAULTS ===
+    if pattern == "UNDER_PERFORMANCE":
         result["diagnosis"] = "IMPELLER_WEAR"
         result["confidence"] = min(85, 60 + int(abs(deviations.get("head_dev", 0)) * 2))
         result["severity"] = "High" if deviations.get("head_dev", 0) < -15 else "Medium"
@@ -1117,12 +1122,6 @@ def main():
         if estimation_notes:
             st.info("🔧 **Auto-Estimation:** " + " | ".join(estimation_notes))
         
-        with st.expander("🔍 Observasi Lapangan (Optional)", expanded=False):
-            noise_type = st.radio("Jenis Noise", ["Normal", "Whining", "Grinding", "Crackling"],
-                                  index=0, key="noise_type")
-            fluid_condition = st.radio("Kondisi Fluida", ["Jernih", "Agak keruh", "Keruh"],
-                                       index=0, key="fluid_cond")
-        
         analyze_hyd_disabled = suction_pressure >= discharge_pressure
         
         if st.button("💧 Generate Diagnosis", type="primary", key="run_hyd",
@@ -1138,16 +1137,12 @@ def main():
                     "bep_efficiency": bep_efficiency,
                     "npsh_required_m": npsh_required
                 }
-                observations = {
-                    "noise_type": noise_type,
-                    "fluid_condition": fluid_condition
-                }
                 context = {
                     "flow_aktual": flow_rate,
                     "suction_pressure_bar": suction_pressure
                 }
                 hyd_result = diagnose_hydraulic_single_point(
-                    hyd_calc, design_params, fluid_props, observations, context
+                hyd_calc, design_params, fluid_props, context
                 )
                 st.session_state.hyd_result = hyd_result
                 st.session_state.hyd_data = {
