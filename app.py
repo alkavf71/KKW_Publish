@@ -796,91 +796,38 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
 # ============================================================================
 # REPORT GENERATION (FIXED)
 # ============================================================================
-def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
-                                elec_data, integrated_result, temp_data=None):
-    lines = []
-    lines.append(f"MULTI-DOMAIN PUMP DIAGNOSTIC REPORT - {machine_id.upper()}")
-    lines.append(f"Generated: {timestamp}")
-    lines.append(f"RPM: {rpm} | 1x RPM: {rpm/60:.2f} Hz")
-    lines.append(f"Standards: ISO 10816-3/7 (Mech) | API 610 (Hyd) | IEC 60034 (Elec)")
-    lines.append("")
-    
-    # === BEARING TEMPERATURE ===
-    if temp_data:
-        lines.append("=== BEARING TEMPERATURE ===")
-        lines.append(f"Pump_DE: {temp_data.get('Pump_DE', 'N/A')}°C | Pump_NDE: {temp_data.get('Pump_NDE', 'N/A')}°C")
-        lines.append(f"Motor_DE: {temp_data.get('Motor_DE', 'N/A')}°C | Motor_NDE: {temp_data.get('Motor_NDE', 'N/A')}°C")
-        if temp_data.get('Pump_DE') and temp_data.get('Pump_NDE'):
-            lines.append(f"Pump ΔT (DE-NDE): {abs(temp_data['Pump_DE'] - temp_data['Pump_NDE']):.1f}°C")
-        if temp_data.get('Motor_DE') and temp_data.get('Motor_NDE'):
-            lines.append(f"Motor ΔT (DE-NDE): {abs(temp_data['Motor_DE'] - temp_data['Motor_NDE']):.1f}°C")
-        lines.append("")
-    
-    # === MECHANICAL VIBRATION (FIXED) ===
-    lines.append("=== MECHANICAL VIBRATION ===")
-    if mech_data.get("points"):
-        lines.append("POINT,Overall_Vel(mm/s),Band1(g),Band2(g),Band3(g),Status")
-        for point, data in mech_data["points"].items():
-            # ✅ Hanya akses data yang benar-benar ada (velocity & bands)
-            vel = data.get('velocity', 0)
-            bands = data.get('bands', {})
-            b1 = bands.get('Band1', 0)
-            b2 = bands.get('Band2', 0)
-            b3 = bands.get('Band3', 0)
-            
-            # ✅ Tentukan status berdasarkan Zone ISO
-            if vel > 7.1:
-                status = "Zone_D"
-            elif vel > 4.5:
-                status = "Zone_C"
-            elif vel > 2.8:
-                status = "Zone_B"
-            else:
-                status = "Zone_A"
-            
-            lines.append(f"{point},{vel:.2f},{b1:.3f},{b2:.3f},{b3:.3f},{status}")
+def generate_html_report(machine_id, rpm, mech_data, hyd_data, elec_data, integrated_result, temp_data=None):
+    """Generate HTML report untuk export PDF-ready"""
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial; margin: 40px; }}
+            h1 {{ color: #1E3A5F; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background-color: #1E3A5F; color: white; }}
+        </style>
+    </head>
+    <body>
+        <h1>🔧💧⚡ Pump Diagnostic Report</h1>
+        <p><strong>Machine ID:</strong> {machine_id}</p>
+        <p><strong>RPM:</strong> {rpm}</p>
+        <p><strong>Generated:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
         
-        # ✅ System-level diagnosis (bukan per titik)
-        lines.append(f"System Diagnosis: {mech_data.get('system_diagnosis', 'N/A')}")
-        lines.append(f"Champion Point: {mech_data.get('champion_point', 'N/A')}")
-    lines.append("")
-    
-    # === HYDRAULIC PERFORMANCE ===
-    lines.append("=== HYDRAULIC PERFORMANCE (Single-Point) ===")
-    if hyd_data.get("measurements"):
-        m = hyd_data["measurements"]
-        lines.append(f"Fluid: {hyd_data.get('fluid_type', 'N/A')} | SG: {hyd_data.get('sg', 'N/A')}")
-        lines.append(f"Suction: {m.get('suction_pressure', 0):.2f} bar | Discharge: {m.get('discharge_pressure', 0):.2f} bar")
-        lines.append(f"Flow: {m.get('flow_rate', 0):.1f} m³/h | Power: {m.get('motor_power', 0):.1f} kW")
-        lines.append(f"Calculated Head: {hyd_data.get('head_m', 0):.1f} m | Efficiency: {hyd_data.get('efficiency_percent', 0):.1f}%")
-        lines.append(f"NPSH Margin: {hyd_data.get('npsh_margin_m', 0):.2f} m")
-        lines.append(f"Diagnosis: {hyd_data.get('diagnosis', 'N/A')} | Confidence: {hyd_data.get('confidence', 0)}% | Severity: {hyd_data.get('severity', 'N/A')}")
-        if hyd_data.get('estimation_note'):
-            lines.append(f"Estimation Note: {hyd_data.get('estimation_note', '')}")
-    lines.append("")
-    
-    # === ELECTRICAL CONDITION ===
-    lines.append("=== ELECTRICAL CONDITION (3-Phase) ===")
-    if elec_data.get("measurements"):
-        e = elec_data["measurements"]
-        lines.append(f"Voltage L1-L2: {e.get('v_l1l2', 0):.1f}V | L2-L3: {e.get('v_l2l3', 0):.1f}V | L3-L1: {e.get('v_l3l1', 0):.1f}V")
-        lines.append(f"Current L1: {e.get('i_l1', 0):.1f}A | L2: {e.get('i_l2', 0):.1f}A | L3: {e.get('i_l3', 0):.1f}A")
-        lines.append(f"Voltage Unbalance: {elec_data.get('voltage_unbalance', 0):.2f}% | Current Unbalance: {elec_data.get('current_unbalance', 0):.2f}%")
-        lines.append(f"Load Estimate: {elec_data.get('load_estimate', 0):.1f}%")
-        lines.append(f"Diagnosis: {elec_data.get('diagnosis', 'N/A')} | Confidence: {elec_data.get('confidence', 0)}% | Severity: {elec_data.get('severity', 'N/A')}")
-    lines.append("")
-    
-    # === INTEGRATED DIAGNOSIS ===
-    lines.append("=== INTEGRATED DIAGNOSIS ===")
-    lines.append(f"Overall Diagnosis: {integrated_result.get('diagnosis', 'N/A')}")
-    lines.append(f"Overall Confidence: {integrated_result.get('confidence', 0)}%")
-    lines.append(f"Overall Severity: {integrated_result.get('severity', 'N/A')}")
-    lines.append(f"Correlation Notes: {'; '.join(integrated_result.get('correlation_notes', []))}")
-    if integrated_result.get("temperature_notes"):
-        lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
-    lines.append("")
-    
-    return "\n".join(lines)
+        <h2>Integrated Diagnosis</h2>
+        <p><strong>Diagnosis:</strong> {integrated_result.get('diagnosis', 'N/A')}</p>
+        <p><strong>Confidence:</strong> {integrated_result.get('confidence', 0)}%</p>
+        <p><strong>Severity:</strong> {integrated_result.get('severity', 'N/A')}</p>
+        
+        <h2>Correlation Notes</h2>
+        <ul>
+            {''.join(f"<li>{note}</li>" for note in integrated_result.get('correlation_notes', []))}
+        </ul>
+    </body>
+    </html>
+    """
+    return html
 
 # ============================================================================
 # STREAMLIT UI - MAIN APPLICATION
