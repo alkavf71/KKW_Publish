@@ -606,98 +606,120 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
     return result
 
 # ============================================================================
-# 🔥 FUZZY LOGIC CONFIDENCE CALCULATION
+# 🔥 FAULT PROPAGATION MAP GENERATOR (NEW FUNCTION)
 # ============================================================================
-def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=None):
-    diagnoses = [
-        mech_result.get("diagnosis", "Normal"),
-        hyd_result.get("diagnosis", "Normal"),
-        elec_result.get("diagnosis", "Normal")
-    ]
-    normal_diagnoses = ["Normal", "NORMAL_OPERATION", "NORMAL_ELECTRICAL"]
-    non_normal = [d for d in diagnoses if d not in normal_diagnoses]
+def generate_fault_propagation_map(mech_result, hyd_result, elec_result, temp_data=None):
+    """
+    Generate fault propagation map dengan repair action untuk perbaikan
+    """
+    propagation_data = []
     
-    if len(non_normal) >= 2:
-        domain_agreement = 0.9
-    elif len(non_normal) == 1:
-        domain_agreement = 0.6
-    else:
-        domain_agreement = 0.8
+    # === PATTERN 1: Electrical Origin ===
+    if elec_result.get("fault_type") == "voltage":
+        if mech_result.get("diagnosis") in ["MISALIGNMENT", "LOOSENESS"]:
+            propagation_data.append({
+                "root_cause": "⚡ Electrical Supply Issue",
+                "fault_chain": ["Voltage Unbalance", "Torque Pulsation", "Mechanical Stress", "Misalignment/Looseness"],
+                "repair_actions": [
+                    "✅ Balance 3-phase supply di MCC",
+                    "✅ Check connection & terminal",
+                    "✅ Verify transformer tap setting",
+                    "✅ Laser alignment setelah electrical fix"
+                ],
+                "priority": "HIGH",
+                "timeline": "1-3 hari"
+            })
     
-    confidences = [
-        mech_result.get("confidence", 50),
-        hyd_result.get("confidence", 50),
-        elec_result.get("confidence", 50)
-    ]
-    conf_std = np.std(confidences)
+    # === PATTERN 2: Hydraulic Origin (Cavitation) ===
+    if hyd_result.get("fault_type") == "cavitation":
+        if mech_result.get("fault_type") == "wear" or mech_result.get("diagnosis") in ["BEARING_EARLY", "BEARING_DEVELOPED"]:
+            propagation_data.append({
+                "root_cause": "💧 Cavitation Damage",
+                "fault_chain": ["Low NPSH Margin", "Bubble Collapse", "Impeller Erosion", "Unbalance", "Bearing Wear"],
+                "repair_actions": [
+                    "✅ Increase suction pressure",
+                    "✅ Clean strainer/filter",
+                    "✅ Check valve position",
+                    "✅ Replace damaged impeller",
+                    "✅ Replace bearing if worn"
+                ],
+                "priority": "CRITICAL",
+                "timeline": "Immediate - 1 minggu"
+            })
     
-    if conf_std < 10:
-        conf_consistency = 0.9
-    elif conf_std < 20:
-        conf_consistency = 0.7
-    else:
-        conf_consistency = 0.5
+    # === PATTERN 3: Mechanical Origin ===
+    if mech_result.get("fault_type") in ["low_freq", "high_freq"]:
+        if hyd_result.get("fault_type") == "efficiency":
+            propagation_data.append({
+                "root_cause": "🔧 Mechanical Fault",
+                "fault_chain": ["Unbalance/Misalignment/Bearing", "Increased Friction", "Efficiency Drop", "Motor Overload"],
+                "repair_actions": [
+                    "✅ Rotor balancing / Laser alignment",
+                    "✅ Bearing replacement",
+                    "✅ Check internal clearance",
+                    "✅ Verify lubrication"
+                ],
+                "priority": "HIGH",
+                "timeline": "1-2 minggu"
+            })
     
-    severities = [
-        mech_result.get("severity", "Low"),
-        hyd_result.get("severity", "Low"),
-        elec_result.get("severity", "Low")
-    ]
-    severity_scores = {"Low": 1, "Medium": 2, "High": 3}
-    severity_values = [severity_scores.get(s, 1) for s in severities]
-    severity_std = np.std(severity_values)
-    
-    if severity_std < 0.5:
-        severity_alignment = 0.9
-    elif severity_std < 1.0:
-        severity_alignment = 0.7
-    else:
-        severity_alignment = 0.5
-    
-    temp_support = 0.7
+    # === PATTERN 4: Bearing Temperature ===
     if temp_data:
-        high_temps = sum(1 for t in temp_data.values() if t and t > 80)
-        critical_temps = sum(1 for t in temp_data.values() if t and t > 90)
+        high_temps = [k for k, v in temp_data.items() if v and v > 80]
+        if high_temps:
+            propagation_data.append({
+                "root_cause": "🌡️ Bearing Overheating",
+                "fault_chain": ["Poor Lubrication", "Increased Friction", "Temperature Rise", "Bearing Damage"],
+                "repair_actions": [
+                    "✅ Check lubrication type & quantity",
+                    "✅ Take oil sample analysis",
+                    "✅ Verify bearing clearance",
+                    "✅ Plan bearing replacement"
+                ],
+                "priority": "HIGH" if any(temp_data.get(k, 0) > 90 for k in high_temps) else "MEDIUM",
+                "timeline": "1-7 hari"
+            })
+    
+    # === PATTERN 5: Delta Temperature ===
+    if temp_data:
+        if temp_data.get("Pump_DE") and temp_data.get("Pump_NDE"):
+            if abs(temp_data["Pump_DE"] - temp_data["Pump_NDE"]) > 15:
+                propagation_data.append({
+                    "root_cause": "🔍 Localized Bearing Fault",
+                    "fault_chain": ["Uneven Load", "Localized Heating", "Bearing Damage"],
+                    "repair_actions": [
+                        "✅ Check bearing housing alignment",
+                        "✅ Verify mounting procedure",
+                        "✅ Inspect bearing raceway",
+                        "✅ Replace bearing if damaged"
+                    ],
+                    "priority": "MEDIUM",
+                    "timeline": "1-4 minggu"
+                })
+    
+    # === DEFAULT: No Clear Propagation ===
+    if not propagation_data:
+        mech_diag = mech_result.get("diagnosis", "Normal")
+        hyd_diag = hyd_result.get("diagnosis", "Normal")
+        elec_diag = elec_result.get("diagnosis", "Normal")
         
-        if critical_temps >= 1:
-            temp_support = 0.9
-        elif high_temps >= 2:
-            temp_support = 0.85
-        elif high_temps == 1:
-            temp_support = 0.75
-        else:
-            temp_support = 0.7
+        if mech_diag != "Normal" or hyd_diag != "NORMAL_OPERATION" or elec_diag != "NORMAL_ELECTRICAL":
+            propagation_data.append({
+                "root_cause": "❓ Individual Domain Fault",
+                "fault_chain": ["Single domain fault detected", "No strong cross-domain correlation"],
+                "repair_actions": [
+                    "✅ Address individual domain fault per recommendation",
+                    "✅ Continue monitoring",
+                    "✅ Collect more data for trend analysis"
+                ],
+                "priority": "MEDIUM",
+                "timeline": "Routine maintenance"
+            })
     
-    base_conf = np.mean(confidences) / 100
-    
-    weights = {
-        "domain_agreement": 0.25,
-        "conf_consistency": 0.20,
-        "severity_alignment": 0.20,
-        "temp_support": 0.15,
-        "base_conf": 0.20
-    }
-    
-    fuzzy_score = (
-        domain_agreement * weights["domain_agreement"] +
-        conf_consistency * weights["conf_consistency"] +
-        severity_alignment * weights["severity_alignment"] +
-        temp_support * weights["temp_support"] +
-        base_conf * weights["base_conf"]
-    )
-    
-    final_confidence = min(95, max(40, int(fuzzy_score * 100)))
-    
-    return final_confidence, {
-        "domain_agreement": round(domain_agreement * 100),
-        "conf_consistency": round(conf_consistency * 100),
-        "severity_alignment": round(severity_alignment * 100),
-        "temp_support": round(temp_support * 100),
-        "base_confidence": round(base_conf * 100)
-    }
+    return propagation_data
 
 # ============================================================================
-# CROSS-DOMAIN INTEGRATION LOGIC (WITH FUZZY CONFIDENCE)
+# CROSS-DOMAIN INTEGRATION LOGIC
 # ============================================================================
 def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                                      shared_context, temp_data=None):
@@ -709,8 +731,7 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
         "domain_breakdown": {},
         "correlation_notes": [],
         "temperature_notes": [],
-        "affected_points": [],
-        "confidence_breakdown": {}
+        "affected_points": []
     }
     
     system_result["domain_breakdown"] = {
@@ -780,11 +801,11 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                 correlated_faults.append("⚠️ Critical bearing temperature detected")
                 break
     
-    final_confidence, confidence_breakdown = calculate_fuzzy_confidence(
-        mech_result, hyd_result, elec_result, temp_data
-    )
-    system_result["confidence"] = final_confidence
-    system_result["confidence_breakdown"] = confidence_breakdown
+    # SIMPLE AVERAGE CONFIDENCE (KEMBALI KE ORIGINAL - TANPA FUZZY)
+    confidences = [r.get("confidence", 0) for r in [mech_result, hyd_result, elec_result]
+                   if r.get("confidence", 0) > 0]
+    base_confidence = np.mean(confidences) if confidences else 0
+    system_result["confidence"] = min(95, int(base_confidence + correlation_bonus))
     
     system_result["correlation_notes"] = correlated_faults if correlated_faults else ["Tidak ada korelasi kuat antar domain terdeteksi"]
     
@@ -870,17 +891,22 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
     lines.append(f"Correlation Notes: {'; '.join(integrated_result.get('correlation_notes', []))}")
     if integrated_result.get("temperature_notes"):
         lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
+    lines.append("")
     
-    if integrated_result.get("confidence_breakdown"):
-        lines.append("")
-        lines.append("=== CONFIDENCE BREAKDOWN (Fuzzy Logic) ===")
-        cb = integrated_result["confidence_breakdown"]
-        lines.append(f"Domain Agreement: {cb.get('domain_agreement', 0)}%")
-        lines.append(f"Confidence Consistency: {cb.get('conf_consistency', 0)}%")
-        lines.append(f"Severity Alignment: {cb.get('severity_alignment', 0)}%")
-        lines.append(f"Temperature Support: {cb.get('temp_support', 0)}%")
-        lines.append(f"Base Confidence: {cb.get('base_confidence', 0)}%")
+    # FAULT PROPAGATION MAP (NEW - ADDED TO CSV)
+    lines.append("=== FAULT PROPAGATION MAP FOR REPAIR ===")
+    mech_result = integrated_result.get("domain_breakdown", {}).get("mechanical", {})
+    hyd_result = integrated_result.get("domain_breakdown", {}).get("hydraulic", {})
+    elec_result = integrated_result.get("domain_breakdown", {}).get("electrical", {})
+    propagation_map = generate_fault_propagation_map(mech_result, hyd_result, elec_result, temp_data)
     
+    for idx, prop in enumerate(propagation_map, 1):
+        lines.append(f"\nScenario {idx}: {prop['root_cause']}")
+        lines.append(f"Priority: {prop['priority']} | Timeline: {prop['timeline']}")
+        lines.append(f"Fault Chain: {' → '.join(prop['fault_chain'])}")
+        lines.append("Repair Actions:")
+        for action in prop["repair_actions"]:
+            lines.append(f"  - {action}")
     lines.append("")
     
     return "\n".join(lines)
@@ -1413,22 +1439,61 @@ def main():
             if affected_points and affected_points != ["Tidak Ada (Normal)"]:
                 st.warning(f"📍 **Titik Terpengaruh:** {', '.join(affected_points)}")
             
+            # ========================================================================
+            # 🔥 FAULT PROPAGATION MAP DISPLAY (NEW UI ELEMENT)
+            # ========================================================================
             st.divider()
-            st.subheader("🔍 Confidence Breakdown (Fuzzy Logic)")
-            st.caption("Confidence dihitung berdasarkan konsistensi antar domain, bukan simple average")
+            st.subheader("🗺️ Fault Propagation Map untuk Perbaikan")
+            st.caption("Rantai fault dari root cause ke effect + action perbaikan yang diperlukan")
             
-            breakdown = integrated_result.get("confidence_breakdown", {})
-            if breakdown:
-                col_b1, col_b2, col_b3 = st.columns(3)
-                with col_b1:
-                    st.metric("Domain Agreement", f"{breakdown.get('domain_agreement', 0)}%")
-                    st.metric("Confidence Consistency", f"{breakdown.get('conf_consistency', 0)}%")
-                with col_b2:
-                    st.metric("Severity Alignment", f"{breakdown.get('severity_alignment', 0)}%")
-                    st.metric("Temperature Support", f"{breakdown.get('temp_support', 0)}%")
-                with col_b3:
-                    st.metric("Base Confidence", f"{breakdown.get('base_confidence', 0)}%")
-                    st.info(f"**Final:** {integrated_result['confidence']}%\n\n*Weighted fuzzy combination*")
+            propagation_map = generate_fault_propagation_map(
+                st.session_state.mech_result,
+                st.session_state.hyd_result,
+                st.session_state.elec_result,
+                temp_data
+            )
+            
+            for idx, prop in enumerate(propagation_map, 1):
+                priority_colors = {
+                    "CRITICAL": ("🔴", "#c0392b"),
+                    "HIGH": ("🟠", "#e67e22"),
+                    "MEDIUM": ("🟡", "#f1c40f"),
+                    "LOW": ("🟢", "#27ae60")
+                }
+                priority_icon, priority_color = priority_colors.get(prop["priority"], ("⚪", "#95a5a6"))
+                
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background-color:#f8f9fa; padding:15px; border-radius:8px; 
+                                border-left:5px solid {priority_color}; margin:10px 0;">
+                    <h4 style="margin:0 0 10px 0; color:#1E3A5F;">
+                    {priority_icon} Scenario {idx}: {prop["root_cause"]}
+                    </h4>
+                    <p style="margin:5px 0; color:#666;">
+                    <b>Priority:</b> {prop["priority"]} | <b>Timeline:</b> {prop["timeline"]}
+                    </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("**🔗 Fault Chain:**")
+                    chain_cols = st.columns(len(prop["fault_chain"]))
+                    for i, fault in enumerate(prop["fault_chain"]):
+                        with chain_cols[i]:
+                            st.markdown(f"""
+                            <div style="background-color:#e8f4f8; padding:10px; border-radius:5px; 
+                                        text-align:center; margin:5px 0;">
+                            <span style="font-size:0.9em;">{fault}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            if i < len(prop["fault_chain"]) - 1:
+                                st.markdown("<div style='text-align:center; color:#999;'>↓</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("**🔧 Repair Actions:**")
+                    for action in prop["repair_actions"]:
+                        st.markdown(f"- {action}")
+                    
+                    st.divider()
+            # ========================================================================
             
             st.divider()
             st.subheader("📥 Export Report")
@@ -1456,7 +1521,7 @@ def main():
             st.divider()
             st.caption("""
             **Standar Acuan**: ISO 10816-3/7 | ISO 13373-1 | API 610 | IEC 60034 | API 670
-            **Algoritma**: Hybrid rule-based dengan cross-domain correlation + **fuzzy confidence scoring**
+            **Algoritma**: Hybrid rule-based dengan cross-domain correlation + confidence scoring
             ⚠️ Decision Support System - Verifikasi oleh personnel kompeten untuk keputusan kritis
             🏭 Pertamina Patra Niaga - Asset Integrity Management
             """)
