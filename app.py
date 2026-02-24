@@ -1500,22 +1500,12 @@ def main():
             st.divider()
             st.subheader("📥 Export Report")
             if st.button("📊 Generate Unified CSV Report", type="primary"):
-                # Buat Laporan HTML
-            html_report = generate_html_report(
-                machine_id, rpm, 
-                st.session_state.mech_data, 
-                st.session_state.hyd_data, 
-                st.session_state.elec_data, 
-                st.session_state.cross_data
-            )
+                csv_report = generate_unified_csv_report(...)
+                st.download_button(label="📥 Download CSV", data=csv_report, ...)
             
-            # Tombol Download HTML
-            st.download_button(
-                label="🖨️ Download Print-Ready Report (HTML)", 
-                data=html_report, 
-                file_name=f"Reliability_Report_{machine_id}.html", 
-                mime="text/html"
-            )
+            if st.button("🖨️ Generate HTML Report (PDF-Ready)", type="secondary"):
+                html_report = generate_html_report(...)
+                st.download_button(label="🖨️ Download HTML", data=html_report, file_name=f"Report_{machine_id}.html", mime="text/html")
             
             st.divider()
             st.caption("""
