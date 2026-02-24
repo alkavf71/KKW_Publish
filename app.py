@@ -1500,12 +1500,25 @@ def main():
             st.divider()
             st.subheader("📥 Export Report")
             if st.button("📊 Generate Unified CSV Report", type="primary"):
-                csv_report = generate_unified_csv_report(...)
-                st.download_button(label="📥 Download CSV", data=csv_report, ...)
-            
-            if st.button("🖨️ Generate HTML Report (PDF-Ready)", type="secondary"):
-                html_report = generate_html_report(...)
-                st.download_button(label="🖨️ Download HTML", data=html_report, file_name=f"Report_{machine_id}.html", mime="text/html")
+            # ✅ Indentasi BENAR (masuk ke dalam if)
+            csv_report = generate_unified_csv_report(
+                machine_id, 
+                rpm,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                st.session_state.get("mech_data", {}),
+                st.session_state.get("hyd_data", {}),
+                st.session_state.get("elec_data", {}),
+                integrated_result,
+                temp_data
+            )
+            st.download_button(
+                label="📥 Download CSV Report",
+                data=csv_report,
+                file_name=f"PUMP_DIAG_{machine_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+            st.success("✅ Report generated successfully!")
             
             st.divider()
             st.caption("""
