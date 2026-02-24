@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
+
 # ============================================================================
 # KONFIGURASI GLOBAL - MULTI-DOMAIN EXPERT SYSTEM
 # ============================================================================
@@ -67,6 +68,7 @@ ELECTRICAL_LIMITS = {
     "current_load_critical": 100,
     "service_factor": 1.0
 }
+
 # ============================================================================
 # FUNGSI REKOMENDASI - MULTI-DOMAIN
 # ============================================================================
@@ -535,9 +537,6 @@ def diagnose_mechanical_system(vel_data, bands_data, fft_data_dict, rpm_hz, temp
     return result
 
 # ============================================================================
-# FUNGSI DIAGNOSA - HYDRAULIC DOMAIN
-# ============================================================================
-# ============================================================================
 # FUNGSI DIAGNOSA - HYDRAULIC DOMAIN (REVISI - TANPA OBSERVASI)
 # ============================================================================
 def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, context):
@@ -619,7 +618,111 @@ def diagnose_hydraulic_single_point(hydraulic_calc, design_params, fluid_props, 
     return result
 
 # ============================================================================
-# CROSS-DOMAIN INTEGRATION LOGIC
+# 🔥 FUZZY LOGIC CONFIDENCE CALCULATION (NEW FUNCTION)
+# ============================================================================
+def calculate_fuzzy_confidence(mech_result, hyd_result, elec_result, temp_data=None):
+    """
+    FUZZY LOGIC untuk confidence aggregation
+    Mempertimbangkan: domain agreement, confidence consistency, severity alignment, temperature support
+    """
+    
+    # === FACTOR 1: Domain Agreement (berapa domain yang detect fault?) ===
+    diagnoses = [
+        mech_result.get("diagnosis", "Normal"),
+        hyd_result.get("diagnosis", "Normal"),
+        elec_result.get("diagnosis", "Normal")
+    ]
+    normal_diagnoses = ["Normal", "NORMAL_OPERATION", "NORMAL_ELECTRICAL"]
+    non_normal = [d for d in diagnoses if d not in normal_diagnoses]
+    
+    if len(non_normal) >= 2:
+        domain_agreement = 0.9  # 2+ domain detect fault (strong correlation)
+    elif len(non_normal) == 1:
+        domain_agreement = 0.6  # 1 domain detect fault (isolated)
+    else:
+        domain_agreement = 0.8  # All normal (good condition)
+    
+    # === FACTOR 2: Confidence Consistency (apakah confidence values mirip?) ===
+    confidences = [
+        mech_result.get("confidence", 50),
+        hyd_result.get("confidence", 50),
+        elec_result.get("confidence", 50)
+    ]
+    conf_std = np.std(confidences)
+    
+    if conf_std < 10:
+        conf_consistency = 0.9  # Very consistent (std < 10)
+    elif conf_std < 20:
+        conf_consistency = 0.7  # Moderately consistent (std 10-20)
+    else:
+        conf_consistency = 0.5  # Inconsistent (std > 20)
+    
+    # === FACTOR 3: Severity Alignment (apakah severity levels konsisten?) ===
+    severities = [
+        mech_result.get("severity", "Low"),
+        hyd_result.get("severity", "Low"),
+        elec_result.get("severity", "Low")
+    ]
+    severity_scores = {"Low": 1, "Medium": 2, "High": 3}
+    severity_values = [severity_scores.get(s, 1) for s in severities]
+    severity_std = np.std(severity_values)
+    
+    if severity_std < 0.5:
+        severity_alignment = 0.9  # All same severity
+    elif severity_std < 1.0:
+        severity_alignment = 0.7  # Close severity (e.g., Low-Medium)
+    else:
+        severity_alignment = 0.5  # Conflicting severity (e.g., Low-High)
+    
+    # === FACTOR 4: Temperature Support (apakah temperature confirm fault?) ===
+    temp_support = 0.7  # Default (no temp data or neutral)
+    if temp_data:
+        high_temps = sum(1 for t in temp_data.values() if t and t > 80)
+        critical_temps = sum(1 for t in temp_data.values() if t and t > 90)
+        
+        if critical_temps >= 1:
+            temp_support = 0.9  # Strong thermal confirmation (critical temp)
+        elif high_temps >= 2:
+            temp_support = 0.85  # Strong thermal confirmation (multiple elevated)
+        elif high_temps == 1:
+            temp_support = 0.75  # Moderate confirmation
+        else:
+            temp_support = 0.7  # No thermal confirmation
+    
+    # === FACTOR 5: Base Confidence Average ===
+    base_conf = np.mean(confidences) / 100  # Normalize to 0-1
+    
+    # === FUZZY RULES - Weighted Combination ===
+    weights = {
+        "domain_agreement": 0.25,      # Most important: cross-domain correlation
+        "conf_consistency": 0.20,      # Important: consistent confidence
+        "severity_alignment": 0.20,    # Important: consistent severity
+        "temp_support": 0.15,          # Moderate: thermal confirmation
+        "base_conf": 0.20              # Moderate: individual domain confidence
+    }
+    
+    fuzzy_score = (
+        domain_agreement * weights["domain_agreement"] +
+        conf_consistency * weights["conf_consistency"] +
+        severity_alignment * weights["severity_alignment"] +
+        temp_support * weights["temp_support"] +
+        base_conf * weights["base_conf"]
+    )
+    
+    # === DEFUZZIFICATION - Convert to 0-100% ===
+    final_confidence = min(95, max(40, int(fuzzy_score * 100)))
+    
+    # === RETURN WITH BREAKDOWN (for transparency) ===
+    return final_confidence, {
+        "domain_agreement": round(domain_agreement * 100),
+        "conf_consistency": round(conf_consistency * 100),
+        "severity_alignment": round(severity_alignment * 100),
+        "temp_support": round(temp_support * 100),
+        "base_confidence": round(base_conf * 100)
+    }
+
+# ============================================================================
+# CROSS-DOMAIN INTEGRATION LOGIC (UPDATED WITH FUZZY CONFIDENCE)
 # ============================================================================
 def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                                      shared_context, temp_data=None):
@@ -631,7 +734,8 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
         "domain_breakdown": {},
         "correlation_notes": [],
         "temperature_notes": [],
-        "affected_points": []  # MULTI-POINT: track all affected points
+        "affected_points": [],  # MULTI-POINT: track all affected points
+        "confidence_breakdown": {}  # FUZZY: Add breakdown for transparency
     }
     
     system_result["domain_breakdown"] = {
@@ -702,10 +806,16 @@ def aggregate_cross_domain_diagnosis(mech_result, hyd_result, elec_result,
                 correlated_faults.append("⚠️ Critical bearing temperature detected")
                 break
     
-    confidences = [r.get("confidence", 0) for r in [mech_result, hyd_result, elec_result]
-                   if r.get("confidence", 0) > 0]
-    base_confidence = np.mean(confidences) if confidences else 0
-    system_result["confidence"] = min(95, int(base_confidence + correlation_bonus))
+    # ========================================================================
+    # 🔥 FUZZY CONFIDENCE CALCULATION (REPLACES SIMPLE AVERAGE)
+    # ========================================================================
+    final_confidence, confidence_breakdown = calculate_fuzzy_confidence(
+        mech_result, hyd_result, elec_result, temp_data
+    )
+    system_result["confidence"] = final_confidence
+    system_result["confidence_breakdown"] = confidence_breakdown
+    # ========================================================================
+    
     system_result["correlation_notes"] = correlated_faults if correlated_faults else ["Tidak ada korelasi kuat antar domain terdeteksi"]
     
     return system_result
@@ -791,6 +901,18 @@ def generate_unified_csv_report(machine_id, rpm, timestamp, mech_data, hyd_data,
     lines.append(f"Correlation Notes: {'; '.join(integrated_result.get('correlation_notes', []))}")
     if integrated_result.get("temperature_notes"):
         lines.append(f"Temperature Notes: {'; '.join(integrated_result['temperature_notes'])}")
+    
+    # FUZZY: Add confidence breakdown to report
+    if integrated_result.get("confidence_breakdown"):
+        lines.append("")
+        lines.append("=== CONFIDENCE BREAKDOWN (Fuzzy Logic) ===")
+        cb = integrated_result["confidence_breakdown"]
+        lines.append(f"Domain Agreement: {cb.get('domain_agreement', 0)}%")
+        lines.append(f"Confidence Consistency: {cb.get('conf_consistency', 0)}%")
+        lines.append(f"Severity Alignment: {cb.get('severity_alignment', 0)}%")
+        lines.append(f"Temperature Support: {cb.get('temp_support', 0)}%")
+        lines.append(f"Base Confidence: {cb.get('base_confidence', 0)}%")
+    
     lines.append("")
     
     return "\n".join(lines)
@@ -1142,7 +1264,7 @@ def main():
                     "suction_pressure_bar": suction_pressure
                 }
                 hyd_result = diagnose_hydraulic_single_point(
-                hyd_calc, design_params, fluid_props, context
+                    hyd_calc, design_params, fluid_props, context
                 )
                 st.session_state.hyd_result = hyd_result
                 st.session_state.hyd_data = {
@@ -1331,6 +1453,27 @@ def main():
             if affected_points and affected_points != ["Tidak Ada (Normal)"]:
                 st.warning(f"📍 **Titik Terpengaruh:** {', '.join(affected_points)}")
             
+            # ========================================================================
+            # 🔥 FUZZY CONFIDENCE BREAKDOWN DISPLAY (NEW UI ELEMENT)
+            # ========================================================================
+            st.divider()
+            st.subheader("🔍 Confidence Breakdown (Fuzzy Logic)")
+            st.caption("Confidence dihitung berdasarkan konsistensi antar domain, bukan simple average")
+            
+            breakdown = integrated_result.get("confidence_breakdown", {})
+            if breakdown:
+                col_b1, col_b2, col_b3 = st.columns(3)
+                with col_b1:
+                    st.metric("Domain Agreement", f"{breakdown.get('domain_agreement', 0)}%")
+                    st.metric("Confidence Consistency", f"{breakdown.get('conf_consistency', 0)}%")
+                with col_b2:
+                    st.metric("Severity Alignment", f"{breakdown.get('severity_alignment', 0)}%")
+                    st.metric("Temperature Support", f"{breakdown.get('temp_support', 0)}%")
+                with col_b3:
+                    st.metric("Base Confidence", f"{breakdown.get('base_confidence', 0)}%")
+                    st.info(f"**Final:** {integrated_result['confidence']}%\n\n*Weighted fuzzy combination*")
+            # ========================================================================
+            
             st.divider()
             st.subheader("📥 Export Report")
             
@@ -1357,7 +1500,7 @@ def main():
             st.divider()
             st.caption("""
             **Standar Acuan**: ISO 10816-3/7 | ISO 13373-1 | API 610 | IEC 60034 | API 670
-            **Algoritma**: Hybrid rule-based dengan cross-domain correlation + confidence scoring
+            **Algoritma**: Hybrid rule-based dengan cross-domain correlation + **fuzzy confidence scoring**
             ⚠️ Decision Support System - Verifikasi oleh personnel kompeten untuk keputusan kritis
             🏭 Pertamina Patra Niaga - Asset Integrity Management
             """)
